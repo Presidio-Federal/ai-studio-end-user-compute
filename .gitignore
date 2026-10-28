@@ -1,0 +1,20 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Cursor authoring — local only
+.cursor/
+plans/
+
+# Local notes for Cursor. Do not push.
+docs/
+
+# Studio workspace mirror (customer data)
+.workspace/
+
+# Optional skill zips
+dist/
+
+# Secrets
+.env
+.env.*
