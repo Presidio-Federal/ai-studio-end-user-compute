@@ -1,0 +1,19 @@
+{
+  "keys": [],
+  "schema": "jamf-metadata/v1",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "source_agent": "jamf-inventory",
+  "evidence_ref": "jamf/2026-01-01T00-00-00Z.json",
+  "last_visit_id": "2026-01-01T00-00-00Z",
+  "last_collected_at": "2026-01-01T00:00:00Z",
+  "baseline_ref": "jamf/2026-01-01T00-00-00Z.json",
+  "status": "ok",
+  "coverage": "complete",
+  "delta": "first",
+  "computers": 2,
+  "live_id": "100",
+  "subjective": "Jamf inventory for serial SERIAL123456.",
+  "objective": "2 in scope. Live id 100 mac-example macOS 15.0 severity ok. Stub id 101. Proof jamf/2026-01-01T00-00-00Z.json.",
+  "assessment": "id 100 is managed and checked in. User-approved MDM is false.",
+  "plan": "Next visit records only what changed."
+}
