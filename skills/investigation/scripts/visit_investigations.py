@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Proactive troubleshooting visit.
+"""Investigation visit.
 
 collect runs under execute_command with execution_type mcp_orchestration.
 It calls Jamf and Nexthink, then writes the investigations stamp and the
@@ -29,6 +29,7 @@ STAMP_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "investigati
 META_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "investigations-metadata.schema.json"
 META_REL = "investigations/metadata.json"
 NAME_RE = re.compile(r"[A-Za-z0-9._-]{1,128}")
+USER_RE = re.compile(r"[A-Za-z0-9._@+-]{1,128}")
 INTEREST = ("crash", "cpu", "memory", "disk", "free", "dex", "boot", "score", "process", "freeze", "health")
 MATERIAL = ("issue", "serial", "user", "managed", "crash_count", "top_process", "signal")
 ISSUES = {
@@ -204,12 +205,14 @@ def pick_live(rows):
     return checked[-1]
 
 
-def find_jamf(serial, name, budget):
+def find_jamf(serial, name, user, budget):
     args = {"page": 0, "page_size": 100}
     if serial:
         args["serial"] = serial
     elif name:
         args["name"] = name
+    elif user:
+        args["email" if "@" in user else "username"] = user
     payload, err = call("jamf_find_devices", args, budget)
     if err:
         return None, err
@@ -227,6 +230,10 @@ def find_jamf(serial, name, budget):
             rows.extend(row for row in extra if row.get("serial") == serial and row.get("id"))
     elif name:
         exact = [row for row in rows if row.get("name") == name]
+        if exact:
+            rows = exact
+    elif user and "@" not in user:
+        exact = [row for row in rows if (row.get("user") or "").lower() == user.lower()]
         if exact:
             rows = exact
     by_id = {}
@@ -254,15 +261,56 @@ def find_jamf(serial, name, budget):
     return chosen, None
 
 
-def lookup_nexthink(device_name, budget):
+def pick_nexthink(rows, jamf_row):
+    usable = [row for row in rows if isinstance(row, dict)]
+    if jamf_row and jamf_row.get("name"):
+        exact = [row for row in usable if cell(row, "device.name") == jamf_row["name"]]
+        if exact:
+            usable = exact
+    if not usable:
+        return {}, 0
+    usable.sort(key=lambda row: cell(row, "device.last_seen") or "")
+    return usable[-1], len(rows)
+
+
+def lookup_by_name(device_name, budget):
     rows, err = nql("#mcp_device_lookup", {"device_name": device_name, "user_name": "*"}, budget)
     if err:
-        return None, err
-    if device_name != "*":
-        exact = [row for row in rows if cell(row, "device.name") == device_name]
-        if exact:
-            rows = exact
-    return (rows[0] if rows else {}), None
+        return None, 0, err
+    exact = [row for row in rows if cell(row, "device.name") == device_name]
+    chosen, count = pick_nexthink(exact or rows, None)
+    return chosen, count, None
+
+
+def lookup_by_user(user, jamf_row, budget):
+    people, err = nql("#mcp_user_lookup", {"user_name": user}, budget)
+    login = user
+    if not err and people:
+        login = cell(people[0], "user.name") or user
+    rows, derr = nql("#mcp_device_lookup", {"device_name": "*", "user_name": login}, budget)
+    if derr:
+        return None, 0, derr
+    if not rows and login != user:
+        rows, derr = nql("#mcp_device_lookup", {"device_name": "*", "user_name": user}, budget)
+        if derr:
+            return None, 0, derr
+    chosen, count = pick_nexthink(rows, jamf_row)
+    return chosen, count, None
+
+
+def locate(serial, name, user, budget):
+    lookup = "serial" if serial else "name" if name else "user"
+    jamf_row, jamf_err = find_jamf(serial or None, name or None, user or None, budget)
+    if lookup == "user":
+        nexthink_row, matches, lookup_err = lookup_by_user(user, jamf_row, budget)
+    else:
+        device_name = (jamf_row or {}).get("name") or name
+        if device_name:
+            nexthink_row, matches, lookup_err = lookup_by_name(device_name, budget)
+        else:
+            nexthink_row, matches, lookup_err = {}, 0, None
+    device_name = cell(nexthink_row or {}, "device.name") or (jamf_row or {}).get("name") or name or ""
+    return jamf_row, nexthink_row, lookup, matches, jamf_err, lookup_err, device_name
 
 
 def signals_from(rows):
@@ -331,7 +379,7 @@ def row_keys(serial):
     return []
 
 
-def build_device(jamf_row, nexthink_row, health_rows, crash_rows, process_rows, health_err, lookup_err, name_arg):
+def build_device(jamf_row, nexthink_row, health_rows, crash_rows, process_rows, health_err, lookup_err, name_arg, lookup, matches):
     jamf_row = jamf_row or {}
     nexthink_row = nexthink_row or {}
     name = jamf_row.get("name") or cell(nexthink_row, "device.name") or name_arg or ""
@@ -353,6 +401,8 @@ def build_device(jamf_row, nexthink_row, health_rows, crash_rows, process_rows, 
         "collector_uid": cell(nexthink_row, "device.collector.uid"),
         "platform": cell(nexthink_row, "device.operating_system.platform"),
         "last_seen": cell(nexthink_row, "device.last_seen") or jamf_row.get("last_contact"),
+        "lookup": lookup,
+        "matches": matches,
         "issue": issue,
         "crash_count": None if crash_rows is None else len(crash_rows),
         "top_process": process,
@@ -422,10 +472,8 @@ def judge(device):
 
 
 def soap_draft(scope, device, status, coverage, rel, delta):
-    if scope.startswith("serial:"):
-        subjective = f"End-user issue check for serial {scope.split(':', 1)[1]}."
-    else:
-        subjective = f"End-user issue check for {scope.split(':', 1)[1]}."
+    kind = {"serial": "serial", "name": "hostname", "user": "username"}.get(device.get("lookup"), "subject")
+    subjective = f"Investigation of {kind} {scope.split(':', 1)[-1]}."
     issue = device.get("issue")
     if issue == "unknown":
         objective = f"Jamf and Nexthink returned no device. Proof {rel}."
@@ -529,7 +577,7 @@ def metadata(now, **fields):
         "keys": [],
         "schema": "investigations-metadata/v1",
         "updated_at": checked_at(now),
-        "source_agent": "proactive-troubleshooting",
+        "source_agent": "investigation",
         "evidence_ref": fields.get("evidence_ref"),
         "last_visit_id": fields.get("last_visit_id"),
         "last_collected_at": fields.get("last_collected_at"),
@@ -572,7 +620,7 @@ def fail(ws, meta, now, reason):
             delta=prior_delta,
             devices=(meta or {}).get("devices") if isinstance((meta or {}).get("devices"), int) else 0,
             issue=(meta or {}).get("issue") if (meta or {}).get("issue") in ISSUES else None,
-            subjective=sentence("End-user issue check did not complete."),
+            subjective=sentence("Investigation did not complete."),
             objective=sentence(reason),
             assessment=sentence("The read failed, so this visit does not change the last stamp."),
             plan=sentence("Run the visit again once Jamf and Nexthink answer."),
@@ -622,22 +670,43 @@ def emit(row, note):
     return body
 
 
+def resolve_query(query, budget):
+    """The task did not say which kind of identifier this is. Try serial, then hostname, then username."""
+    if "@" in query:
+        return "", "", query
+    if query.isalnum():
+        found, err = find_jamf(query, None, None, budget)
+        if found and not err:
+            return query, "", ""
+    found, err = find_jamf(None, query, None, budget)
+    if found and not err and found.get("name") == query:
+        return "", query, ""
+    return "", "", query
+
+
 def cmd_collect(args):
     ws = resolve_workspace(args.workspace)
     if ws is None:
         return 1
     serial = strip_arg(args.serial)
     name = strip_arg(args.name)
+    user = strip_arg(args.user)
+    query = strip_arg(args.query)
     if serial and not serial.isalnum():
         print('{"error": "serial must be letters and digits"}', file=sys.stderr)
         return 1
     if name and not NAME_RE.fullmatch(name):
         print('{"error": "name must be letters, digits, dot, underscore, or hyphen"}', file=sys.stderr)
         return 1
-    if not serial and not name:
-        print('{"error": "pass --serial or --name from the task line"}', file=sys.stderr)
+    if user and not USER_RE.fullmatch(user):
+        print('{"error": "user must be letters, digits, dot, underscore, plus, hyphen, or email"}', file=sys.stderr)
         return 1
-    scope = f"serial:{serial}" if serial else f"name:{name}"
+    if query and not USER_RE.fullmatch(query):
+        print('{"error": "query must be a serial, hostname, or username"}', file=sys.stderr)
+        return 1
+    if not serial and not name and not user and not query:
+        print('{"error": "pass --serial, --name, --user, or --query from the task line"}', file=sys.stderr)
+        return 1
     now = datetime.now(timezone.utc)
     meta = load_meta(ws)
     folded, prior = fold(ws, meta)
@@ -645,44 +714,35 @@ def cmd_collect(args):
         print('{"error": "prior stamp chain is unreadable"}', file=sys.stderr)
         return 1
     budget = visit_common.Budget(240)
-    jamf_row, jamf_err = find_jamf(serial or None, name or None, budget)
-    if jamf_err and jamf_row is None and not name:
-        return fail(ws, meta, now, jamf_err)
-    device_name = (jamf_row or {}).get("name") or name
-    nexthink_row = None
-    lookup_err = None
-    health_rows = None
-    crash_rows = None
+    if query and not serial and not name and not user:
+        serial, name, user = resolve_query(query, budget)
+    lookup_kind = "serial" if serial else "name" if name else "user"
+    scope = f"{lookup_kind}:{serial or name or user}"
+    jamf_row, nexthink_row, lookup_kind, matches, jamf_err, lookup_err, device_name = locate(
+        serial or None, name or None, user or None, budget
+    )
+    health_rows = []
+    crash_rows = []
     process_rows = []
     health_err = None
-    if device_name:
-        nexthink_row, lookup_err = lookup_nexthink(device_name, budget)
-        if lookup_err:
-            nexthink_row = None
-        elif nexthink_row:
-            device_name = cell(nexthink_row, "device.name") or device_name
-        if device_name and not lookup_err:
-            health_rows, health_err = nql("#mcp_device_health", {"device_name": device_name}, budget)
-            crash_rows, crash_err = nql(
-                "#mcp_app_crashes",
-                {"device_name": device_name, "binary_name": "*"},
-                budget,
-            )
-            process_rows, process_err = nql("#mcp_device_top_processes", {"device_name": device_name}, budget)
-            if crash_err:
-                crash_rows = None
-                health_err = health_err or crash_err
-            if process_err:
-                process_rows = []
-                health_err = health_err or process_err
-            if health_err and health_rows is None:
-                health_rows = []
-        else:
+    if device_name and not lookup_err:
+        health_rows, health_err = nql("#mcp_device_health", {"device_name": device_name}, budget)
+        crash_rows, crash_err = nql(
+            "#mcp_app_crashes",
+            {"device_name": device_name, "binary_name": "*"},
+            budget,
+        )
+        process_rows, process_err = nql("#mcp_device_top_processes", {"device_name": device_name}, budget)
+        if crash_err:
+            crash_rows = None
+            health_err = health_err or crash_err
+        if process_err:
+            process_rows = []
+            health_err = health_err or process_err
+        if health_err and health_rows is None:
             health_rows = []
-            crash_rows = []
-    else:
-        health_rows = []
-        crash_rows = []
+    elif lookup_err:
+        crash_rows = None
     if jamf_err and not jamf_row and lookup_err:
         return fail(ws, meta, now, jamf_err or lookup_err)
     device = build_device(
@@ -691,9 +751,11 @@ def cmd_collect(args):
         health_rows or [],
         crash_rows,
         process_rows or [],
-        health_err,
+        health_err or lookup_err,
         lookup_err,
-        name,
+        name or device_name,
+        lookup_kind,
+        matches,
     )
     if jamf_err and not jamf_row:
         device["_partial"] = True
@@ -703,6 +765,8 @@ def cmd_collect(args):
         prior_row = next((row for row in folded.values() if row.get("serial") == serial), None)
     if prior_row is None and device.get("name"):
         prior_row = next((row for row in folded.values() if row.get("name") == device.get("name")), None)
+    if prior_row is None and user:
+        prior_row = next((row for row in folded.values() if (row.get("user") or "").lower() == user.lower()), None)
     changes = diff_rows(prior_row, device) if prior_row else []
     first = prior is None or not folded
     removed_ids = []
@@ -812,6 +876,8 @@ def cmd_collect(args):
             "name": device.get("name"),
             "serial": device.get("serial"),
             "user": device.get("user"),
+            "lookup": device.get("lookup"),
+            "matches": device.get("matches"),
             "issue": device.get("issue"),
             "crash_count": device.get("crash_count"),
             "top_process": device.get("top_process"),
@@ -855,12 +921,14 @@ def cmd_annotate(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Proactive troubleshooting visit")
+    parser = argparse.ArgumentParser(description="Investigation visit")
     sub = parser.add_subparsers(dest="command", required=True)
     collect = sub.add_parser("collect")
     collect.add_argument("--workspace", required=True)
     collect.add_argument("--serial", default="")
     collect.add_argument("--name", default="")
+    collect.add_argument("--user", default="")
+    collect.add_argument("--query", default="")
     collect.set_defaults(func=cmd_collect)
     annotate = sub.add_parser("annotate")
     annotate.add_argument("--workspace", required=True)

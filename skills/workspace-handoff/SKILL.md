@@ -24,8 +24,8 @@ paths.
 |------|------|--------|--------|-----------------------------|
 | `jamf/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Jamf Inventory | `jamf-inventory` `schemas/jamf-inventory-visit.schema.json` | Whether the computer exists, who it is assigned to, and managed, supervised, user-approved MDM, and MDM capable. `keys` use `device:` for the chassis serial. A later stamp is only the computers whose owner or management level changed. |
 | `jamf/metadata.json` | metadata | Jamf Inventory | `jamf-inventory` `schemas/jamf-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. Counts are fine. The computer rows are not. |
-| `investigations/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Proactive troubleshooting | `proactive-troubleshooting` `schemas/investigations-visit.schema.json` | The end-user issue for one device, plus who owns it and whether it is managed. `keys` use `device:` for the chassis serial. A later stamp is only that device when the issue changed. |
-| `investigations/metadata.json` | metadata | Proactive troubleshooting | `proactive-troubleshooting` `schemas/investigations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `issue` is the verdict word. The device row is not. |
+| `investigations/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Investigation | `investigation` `schemas/investigations-visit.schema.json` | The consolidated state of one endpoint found by serial, hostname, or username: owner, management, and the experience reading. `keys` use `device:` for the chassis serial. A later stamp is only that endpoint when the state changed. |
+| `investigations/metadata.json` | metadata | Investigation | `investigation` `schemas/investigations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `issue` is the verdict word. The device row is not. |
 
 ## Writing
 

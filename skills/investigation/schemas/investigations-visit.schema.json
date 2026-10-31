@@ -103,6 +103,8 @@
         "collector_uid",
         "platform",
         "last_seen",
+        "lookup",
+        "matches",
         "issue",
         "crash_count",
         "top_process",
@@ -123,6 +125,8 @@
         "collector_uid": { "type": ["string", "null"] },
         "platform": { "type": ["string", "null"] },
         "last_seen": { "type": ["string", "null"] },
+        "lookup": { "enum": ["serial", "name", "user"] },
+        "matches": { "type": "integer", "minimum": 0 },
         "issue": {
           "enum": [
             "application_crashes",

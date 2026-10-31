@@ -1,22 +1,26 @@
 # Investigation tools
 
-The visit script calls these. The prompt does not.
+The visit script calls these. The prompt does not. The prompt decides whether the task names a serial, a hostname, or a username, and passes that one argument.
 
 | Tool | When the script calls it |
 |------|--------------------------|
-| `jamf_find_devices` | Every collect. With `--serial`, it passes `serial` and also `filter` `hardware.serialNumber=="<serial>"`. With `--name` and no serial, it passes `name`. |
+| `jamf_find_devices` | Every collect. `--serial` passes `serial` and also `filter` `hardware.serialNumber=="<serial>"`. `--name` passes `name`. `--user` passes `username`, or `email` when the value contains `@`. |
 | `jamf_get_device` | Once, for the Jamf id that is managed and has checked in. Sections: GENERAL, HARDWARE, USER_AND_LOCATION. |
-| `nexthink_nql_execute` | `#mcp_device_lookup` with `device_name` and `user_name` `"*"`. Then, for that device name, `#mcp_device_health`, `#mcp_app_crashes` with `binary_name` `"*"`, and `#mcp_device_top_processes`. |
+| `nexthink_nql_execute` | `#mcp_user_lookup` when the subject is a username. `#mcp_device_lookup` with `device_name` and `user_name`. Then `#mcp_device_health`, `#mcp_app_crashes` with `binary_name` `"*"`, and `#mcp_device_top_processes` for the device name that was found. |
+
+A username lookup passes `device_name` `"*"` and the username as `user_name`. When that returns more than one device, the script keeps the one that matches the Jamf hostname, or the one seen most recently, and records the count in `matches`.
 
 `#mcp_device_health` and `#mcp_device_top_processes` take one real device name. The script does not pass `"*"` for those.
+
+`--query` is the unlabeled token. The script tries it as a serial, then as a hostname, then as a username.
 
 The script does not call `jamf_get_device_health`, `jamf_send_mdm_command`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool.
 
 ## What the row holds
 
-Jamf supplies the chassis serial, the assigned user, and managed, supervised, user-approved MDM, and MDM capable. Nexthink supplies the Collector UID, platform, last seen, crash rows, the top process, and up to 12 health signals.
+Jamf supplies the chassis serial, the assigned user, and managed, supervised, user-approved MDM, and MDM capable. Nexthink supplies the Collector UID, platform, last seen, crash rows, the top process, and up to 12 health signals. `lookup` is `serial`, `name`, or `user`.
 
-`device:` is the chassis serial. A hostname is a column. A comment is not a site.
+`device:` is the chassis serial. A hostname is a column. A username is a column. A comment is not a site.
 
 ## What counts as a change
 

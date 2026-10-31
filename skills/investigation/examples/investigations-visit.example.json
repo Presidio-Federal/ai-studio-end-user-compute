@@ -29,6 +29,8 @@
       "collector_uid": "collector-example",
       "platform": "macOS",
       "last_seen": "2026-01-01T00:00:00Z",
+      "lookup": "serial",
+      "matches": 1,
       "issue": "application_crashes",
       "crash_count": 2,
       "top_process": "example-process",
