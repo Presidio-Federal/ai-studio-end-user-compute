@@ -125,7 +125,7 @@
         "collector_uid": { "type": ["string", "null"] },
         "platform": { "type": ["string", "null"] },
         "last_seen": { "type": ["string", "null"] },
-        "lookup": { "enum": ["serial", "name", "user"] },
+        "lookup": { "enum": ["serial", "name", "user", "discover"] },
         "matches": { "type": "integer", "minimum": 0 },
         "issue": {
           "enum": [
@@ -135,6 +135,7 @@
             "not_in_nexthink",
             "not_in_jamf",
             "no_signal",
+            "discovered",
             "unknown"
           ]
         },

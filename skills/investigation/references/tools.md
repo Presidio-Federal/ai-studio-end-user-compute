@@ -1,6 +1,8 @@
 # Investigation tools
 
-The visit script calls these. The prompt does not. The prompt decides whether the task names a serial, a hostname, or a username, and passes that one argument.
+Before an endpoint is chosen, the agent calls whichever list tools are attached. It does not invent tools and it does not assume a platform.
+
+After one endpoint is chosen, the visit script calls these. The prompt does not call them again on that turn.
 
 | Tool | When the script calls it |
 |------|--------------------------|
@@ -12,7 +14,7 @@ A username lookup passes `device_name` `"*"` and the username as `user_name`. Wh
 
 `#mcp_device_health` and `#mcp_device_top_processes` take one real device name. The script does not pass `"*"` for those.
 
-`--query` is the unlabeled token. The script tries it as a serial, then as a hostname, then as a username.
+`--query` is an unlabeled token for one chosen endpoint. The script tries it as a serial, then as a hostname, then as a username. The script does not list a fleet. Listing is the agent's job, with the tools attached to it, before this script runs.
 
 The script does not call `jamf_get_device_health`, `jamf_send_mdm_command`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool.
 

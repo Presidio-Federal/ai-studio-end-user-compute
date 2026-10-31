@@ -39,6 +39,7 @@ ISSUES = {
     "not_in_nexthink",
     "not_in_jamf",
     "no_signal",
+    "discovered",
     "unknown",
 }
 
@@ -704,14 +705,14 @@ def cmd_collect(args):
     if query and not USER_RE.fullmatch(query):
         print('{"error": "query must be a serial, hostname, or username"}', file=sys.stderr)
         return 1
-    if not serial and not name and not user and not query:
-        print('{"error": "pass --serial, --name, --user, or --query from the task line"}', file=sys.stderr)
-        return 1
     now = datetime.now(timezone.utc)
     meta = load_meta(ws)
     folded, prior = fold(ws, meta)
     if folded is None:
         print('{"error": "prior stamp chain is unreadable"}', file=sys.stderr)
+        return 1
+    if not serial and not name and not user and not query:
+        print('{"error": "pass --serial, --name, --user, or --query for one chosen endpoint"}', file=sys.stderr)
         return 1
     budget = visit_common.Budget(240)
     if query and not serial and not name and not user:

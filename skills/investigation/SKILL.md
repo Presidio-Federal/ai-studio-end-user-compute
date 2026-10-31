@@ -1,16 +1,18 @@
 ---
 name: investigation
-version: "0.2.0"
-description: "v0.2.0 — Investigate one endpoint from a serial, hostname, or username using Jamf and Nexthink, and write the investigations stamp and SOAP note."
+version: "0.4.0"
+description: "v0.4.0 — List attached device sources when no endpoint is chosen, then consolidate that endpoint from Jamf and Nexthink."
 ---
 
 # Investigation
 
-One investigation per conversation. The script calls Jamf and Nexthink and writes the consolidated state of one endpoint: who it belongs to, whether it is managed, and what the experience shows. It does not open a ServiceNow ticket, send an MDM command, or run a Nexthink fix.
+One chosen endpoint per consolidation. The script calls Jamf and Nexthink and writes who it belongs to, whether it is managed, and what the experience shows. It does not open a ServiceNow ticket, send an MDM command, or run a Nexthink fix.
 
-A line that asks to investigate an endpoint, a serial, a hostname, a username, an end-user issue, or a Jamf or Nexthink event is authorization. Do not confirm. The same visit runs standalone, from an API call, or as a subagent.
+A line that asks about health, devices, an endpoint, a serial, a hostname, a username, or an event is authorization. Do not confirm. The same agent runs standalone, from an API call, or as a subagent.
 
-Read the task line and decide what it names. A chassis serial is `--serial`. A hostname is `--name`. A person, username, or email is `--user`. Pass one of those. When the task does not say which, pass the token as `--query`. The script then tries a serial, then a hostname, then a username.
+When no endpoint is chosen, call the list tools that are attached. Any source that can list devices counts. Show the choices and ask which one. Do not run the visit script yet. Do not assume a platform.
+
+When one endpoint is chosen, run `scripts/visit_investigations.py collect` (see `references/watch.md`). A chassis serial is `--serial`. A hostname is `--name`. A person, username, or email is `--user`. An unlabeled token is `--query`.
 
 **Investigation.** Run `scripts/visit_investigations.py collect` (see `references/watch.md`). The first visit is a baseline. A later visit writes a stamp only when the endpoint state changed. A quiet visit rewrites `investigations/metadata.json` and does not add a stamp.
 
@@ -18,7 +20,7 @@ If they ask to open a ticket, send an MDM command, run a remote action, start a 
 
 ## Hard boundaries
 
-Do not call `jamf_get_device_health`, `jamf_send_mdm_command`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool. Do not write `state/`. Do not `write_file` the stamp or the metadata. Do not delete a stamp. Do not invent files. On this visit, `execute_command` runs only `scripts/visit_investigations.py`. Do not write scripts.
+Do not call `jamf_get_device_health`, `jamf_send_mdm_command`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool. Do not write `state/`. Do not `write_file` the stamp or the metadata. Do not delete a stamp. Do not invent files or tools. Before an endpoint is chosen, list with the tools that are attached. After one is chosen, `execute_command` runs only `scripts/visit_investigations.py`. Do not write scripts.
 
 ## Files
 
@@ -31,7 +33,7 @@ Paths and catalog: **`workspace-handoff`**. When and how: `references/workspace-
 
 Use exactly: `references/watch.md`, `references/tools.md`, `references/workspace-contract.md`, `schemas/investigations-visit.schema.json`, `schemas/investigations-metadata.schema.json`, `examples/investigations-visit.example.json`, `examples/investigations-metadata.example.json`. Do not search the workspace for them.
 
-**Investigation — first tool:** one `execute_command`, `execution_type: "mcp_orchestration"`, the collect command in `references/watch.md`. Do not set `timeout`. The call is the command and `execution_type` only. Then one `annotate` command under `execution_type: "standard"` when the summary `stamp` is a path. Those sentences are the evaluation. They name the proof path and the endpoint state. They do not list health rows. Reply from the summary line. If stderr says `hai_mcp unavailable`, stop.
+**Chosen endpoint:** one `execute_command`, `execution_type: "mcp_orchestration"`, the collect command in `references/watch.md`. Do not set `timeout`. The call is the command and `execution_type` only. Then one `annotate` command under `execution_type: "standard"` when the summary `stamp` is a path. Those sentences are the evaluation. They name the proof path and the endpoint state. They do not list health rows. Reply from the summary line. If stderr says `hai_mcp unavailable`, stop. Do not start this step while the endpoint is still unchosen.
 
 ## Canonical top-level keys
 

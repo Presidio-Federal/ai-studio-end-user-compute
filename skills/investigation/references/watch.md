@@ -1,10 +1,12 @@
 # Investigation visit
 
-A line that asks to investigate an endpoint, a serial, a hostname, a username, an end-user issue, or a Jamf or Nexthink event is authorization. Do not confirm.
+A line that asks about health, devices, an endpoint, a serial, a hostname, a username, or an event is authorization. Do not confirm.
 
-This visit reads Jamf and Nexthink and records the consolidated state of one endpoint. It does not open a ticket, send an MDM command, or run a Nexthink fix.
+When no endpoint is chosen, call the list tools that are attached. Show hostname, id, user, and source. Ask which one. Stop. Do not run the script. Do not assume a platform.
 
-Read the task line and decide what it names. A chassis serial is `--serial`. A hostname is `--name`. A person, username, or email is `--user`. Pass one of those. When the task does not say which, pass the token as `--query`.
+When one endpoint is chosen, this visit reads Jamf and Nexthink and records that endpoint. It does not open a ticket, send an MDM command, or run a Nexthink fix.
+
+A chassis serial is `--serial`. A hostname is `--name`. A person, username, or email is `--user`. An unlabeled token is `--query`.
 
 ## Run the script
 
@@ -16,7 +18,7 @@ Each `execute_command` is a new container. In that container the workspace is th
 python3 <copied script path> collect --workspace <copied file_explorer directory> --serial "<serial from the task line>"
 python3 <copied script path> collect --workspace <copied file_explorer directory> --name "<hostname from the task line>"
 python3 <copied script path> collect --workspace <copied file_explorer directory> --user "<username from the task line>"
-python3 <copied script path> collect --workspace <copied file_explorer directory> --query "<unlabeled token from the task line>"
+python3 <copied script path> collect --workspace <copied file_explorer directory> --query "<unlabeled token>"
 ```
 
 The last stdout line is the summary. A line above it from the runtime is not the result. Do not open the stamp or the metadata to fill the reply.
