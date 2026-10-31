@@ -1,0 +1,19 @@
+{
+  "keys": [],
+  "schema": "investigations-metadata/v1",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "source_agent": "proactive-troubleshooting",
+  "evidence_ref": "investigations/2026-01-01T00-00-00Z.json",
+  "last_visit_id": "2026-01-01T00-00-00Z",
+  "last_collected_at": "2026-01-01T00:00:00Z",
+  "baseline_ref": "investigations/2026-01-01T00-00-00Z.json",
+  "status": "degraded",
+  "coverage": "complete",
+  "delta": "first",
+  "devices": 1,
+  "issue": "application_crashes",
+  "subjective": "End-user issue check for serial SERIAL123456.",
+  "objective": "mac-example user user.name. Issue application_crashes. 2 crash rows. Proof investigations/2026-01-01T00-00-00Z.json.",
+  "assessment": "The end user on mac-example is hitting application crashes. The Mac is managed.",
+  "plan": "A later visit opens the ticket from this stamp. This visit does not."
+}

@@ -2,7 +2,7 @@
 
 A line that asks for Jamf inventory, an enrolled Mac, a serial, or device status is authorization. Do not confirm.
 
-This visit reads Jamf computers and writes the chart. It does not send an MDM command, assign a PreStage, change a Jamf account, or call ServiceNow.
+This visit records whether a Jamf computer exists, who it belongs to, and its management level. It does not send an MDM command, assign a PreStage, or change a Jamf account.
 
 ## Run the script
 
@@ -43,7 +43,8 @@ Proof: <stamp>
 Summary: jamf/metadata.json
 Trend: <delta>
 Computers: <computers>
-Live: <live_name> <serial> id <live_id> managed <managed> <severity>
+Live: <live_name> <serial> id <live_id> user <user>
+Management: managed <managed>, supervised <supervised>, user-approved MDM <user_approved_mdm>, MDM capable <mdm_capable>
 Stub: <stubs, omit this line when stubs is empty>
 Next: <plan>
 ```

@@ -1,0 +1,45 @@
+{
+  "keys": ["device:SERIAL123456"],
+  "schema": "investigations/v1",
+  "source": "investigations",
+  "watch_id": "2026-01-01T00-00-00Z",
+  "checked_at": "2026-01-01T00:00:00Z",
+  "ok": false,
+  "status": "degraded",
+  "headline": "SERIAL123456 mac-example issue application_crashes. 2 crash rows.",
+  "coverage": "complete",
+  "baseline_ref": null,
+  "vs_prior": {
+    "prior_watch_id": null,
+    "delta": "first",
+    "changed": []
+  },
+  "devices": [
+    {
+      "keys": ["device:SERIAL123456"],
+      "id": "SERIAL123456",
+      "name": "mac-example",
+      "serial": "SERIAL123456",
+      "user": "user.name",
+      "jamf_id": "100",
+      "managed": true,
+      "supervised": false,
+      "user_approved_mdm": false,
+      "mdm_capable": true,
+      "collector_uid": "collector-example",
+      "platform": "macOS",
+      "last_seen": "2026-01-01T00:00:00Z",
+      "issue": "application_crashes",
+      "crash_count": 2,
+      "top_process": "example-process",
+      "signals": [
+        { "name": "device.boot.days_since_last_full_boot", "value": "3" }
+      ],
+      "note": "Baseline."
+    }
+  ],
+  "unchanged": 0,
+  "removed": [],
+  "notes": "Baseline.",
+  "scope": "SERIAL123456"
+}

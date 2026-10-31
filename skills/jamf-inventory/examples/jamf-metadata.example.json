@@ -12,8 +12,8 @@
   "delta": "first",
   "computers": 2,
   "live_id": "100",
-  "subjective": "Jamf inventory for serial SERIAL123456.",
-  "objective": "2 in scope. Live id 100 mac-example macOS 15.0 severity ok. Stub id 101. Proof jamf/2026-01-01T00-00-00Z.json.",
-  "assessment": "id 100 is managed and checked in. User-approved MDM is false.",
+  "subjective": "Jamf management check for serial SERIAL123456.",
+  "objective": "2 in scope. Live id 100 mac-example user user.name. Stub id 101. Proof jamf/2026-01-01T00-00-00Z.json.",
+  "assessment": "id 100 belongs to user.name. Managed true, supervised false, user-approved MDM false, MDM capable false.",
   "plan": "Next visit records only what changed."
 }

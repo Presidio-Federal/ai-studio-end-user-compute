@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "investigations-metadata.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "keys",
+    "schema",
+    "updated_at",
+    "source_agent",
+    "evidence_ref",
+    "last_visit_id",
+    "last_collected_at",
+    "baseline_ref",
+    "status",
+    "coverage",
+    "delta",
+    "devices",
+    "issue",
+    "subjective",
+    "objective",
+    "assessment",
+    "plan"
+  ],
+  "properties": {
+    "keys": { "type": "array", "maxItems": 0 },
+    "schema": { "const": "investigations-metadata/v1" },
+    "updated_at": { "type": "string", "minLength": 20 },
+    "source_agent": { "const": "proactive-troubleshooting" },
+    "evidence_ref": { "type": ["string", "null"] },
+    "last_visit_id": { "type": ["string", "null"] },
+    "last_collected_at": { "type": ["string", "null"] },
+    "baseline_ref": { "type": ["string", "null"] },
+    "status": { "enum": ["ok", "degraded", "unknown"] },
+    "coverage": { "enum": ["complete", "partial", "unavailable"] },
+    "delta": { "enum": ["first", "unchanged", "changed", "unread"] },
+    "devices": { "type": "integer", "minimum": 0 },
+    "issue": {
+      "type": ["string", "null"],
+      "enum": [
+        "application_crashes",
+        "experience_recorded",
+        "experience_unread",
+        "not_in_nexthink",
+        "not_in_jamf",
+        "no_signal",
+        "unknown",
+        null
+      ]
+    },
+    "subjective": { "type": "string", "maxLength": 400 },
+    "objective": { "type": "string", "maxLength": 400 },
+    "assessment": { "type": "string", "maxLength": 400 },
+    "plan": { "type": "string", "maxLength": 400 }
+  }
+}

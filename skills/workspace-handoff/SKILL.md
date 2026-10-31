@@ -1,7 +1,7 @@
 ---
 name: workspace-handoff
-description: "v0.1.0 — Workspace catalog of who writes each path, with the Jamf stamp as the record and metadata as the SOAP note."
-version: "0.1.0"
+description: "v0.2.0 — Workspace catalog of who writes each path. Jamf and investigations stamps are the records. Metadata is the SOAP note."
+version: "0.2.0"
 ---
 
 # Workspace handoff
@@ -22,8 +22,10 @@ paths.
 
 | Path | Kind | Writer | Schema | What another agent may read |
 |------|------|--------|--------|-----------------------------|
-| `jamf/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Jamf Inventory | `jamf-inventory` `schemas/jamf-inventory-visit.schema.json` | First visit is the baseline. A later stamp is only the computers that changed, plus `removed` and `vs_prior.changed`. `keys` use `device:` for the chassis serial. A hostname is a column. A quiet visit does not add a stamp. |
+| `jamf/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Jamf Inventory | `jamf-inventory` `schemas/jamf-inventory-visit.schema.json` | Whether the computer exists, who it is assigned to, and managed, supervised, user-approved MDM, and MDM capable. `keys` use `device:` for the chassis serial. A later stamp is only the computers whose owner or management level changed. |
 | `jamf/metadata.json` | metadata | Jamf Inventory | `jamf-inventory` `schemas/jamf-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. Counts are fine. The computer rows are not. |
+| `investigations/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Proactive troubleshooting | `proactive-troubleshooting` `schemas/investigations-visit.schema.json` | The end-user issue for one device, plus who owns it and whether it is managed. `keys` use `device:` for the chassis serial. A later stamp is only that device when the issue changed. |
+| `investigations/metadata.json` | metadata | Proactive troubleshooting | `proactive-troubleshooting` `schemas/investigations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `issue` is the verdict word. The device row is not. |
 
 ## Writing
 

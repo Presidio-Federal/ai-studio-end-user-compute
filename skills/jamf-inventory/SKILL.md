@@ -1,24 +1,24 @@
 ---
 name: jamf-inventory
-version: "0.1.0"
-description: "v0.1.0 — Find an enrolled Jamf Mac by serial and record inventory, check-in, and device status."
+version: "0.2.0"
+description: "v0.2.0 — Record whether a Jamf Mac exists, who it belongs to, and whether it is managed, supervised, and MDM capable."
 ---
 
 # Jamf inventory
 
-One Jamf visit per conversation. The script calls `jamf_find_devices`, `jamf_get_device`, and `jamf_get_device_health`. It writes the stamp, then the SOAP note.
+One Jamf visit per conversation. The script calls `jamf_find_devices` and `jamf_get_device`. It writes whether the computer exists, who it is assigned to, and the management level: managed, supervised, user-approved MDM, and MDM capable.
 
 A line that asks for Jamf inventory, an enrolled Mac, a serial, or device status is authorization. Do not confirm.
 
-**Inventory.** Run `scripts/visit_jamf.py collect` (see `references/watch.md`). Pass `--serial` only when the task line names one. The first visit is a baseline. A later visit writes only the computers that changed since the last stamp. A quiet visit rewrites `jamf/metadata.json` and does not add a stamp. Check-in time and last IP alone do not open a stamp.
+**Management check.** Run `scripts/visit_jamf.py collect` (see `references/watch.md`). Pass `--serial` only when the task line names one. The first visit is a baseline. A later visit writes only the computers whose owner or management level changed. A quiet visit rewrites `jamf/metadata.json` and does not add a stamp. A newer check-in time alone does not open a stamp. Last check-in is stored so a live record can be told from a stub.
 
 Two Jamf records can share one serial. The live record is the one that is managed and has a last check-in. The other stays on the stamp as its own id.
 
-If they ask to send an MDM command, assign a PreStage, change a Jamf account, or open a ServiceNow record: reply `That's not what I do.` and stop.
+If they ask for FileVault, disk, OS health, an MDM command, a PreStage, or a Jamf account change: reply `That's not what I do.` and stop.
 
 ## Hard boundaries
 
-Do not call `jamf_send_mdm_command`, `jamf_list_prestages`, `jamf_assign_prestage_serial`, `jamf_manage_accounts`, or any ServiceNow tool. Do not call `jamf_get_device_dossier` or `jamf_get_device_history`. Do not write `state/`. Do not `write_file` the stamp or the metadata. Do not delete a stamp. Do not invent files. On this visit, `execute_command` runs only `scripts/visit_jamf.py`. Do not write scripts.
+Do not call `jamf_get_device_health`, `jamf_send_mdm_command`, `jamf_list_prestages`, `jamf_assign_prestage_serial`, or `jamf_manage_accounts`. Do not call `jamf_get_device_dossier` or `jamf_get_device_history`. Do not write `state/`. Do not `write_file` the stamp or the metadata. Do not delete a stamp. Do not invent files. On this visit, `execute_command` runs only `scripts/visit_jamf.py`. Do not write scripts.
 
 ## Files
 
@@ -35,7 +35,7 @@ Use exactly: `references/watch.md`, `references/tools.md`, `references/workspace
 
 ## Canonical top-level keys
 
-Every stamp has top-level `keys`. Set it to the deduplicated union of the row keys. Metadata `keys` stays `[]`. Keys match `^(device|site|warehouse|request):[^ ].*$`. Use `device:` for the chassis serial. Use `site:` for the Jamf site name. A hostname is a column. A comment is not a site.
+Every stamp has top-level `keys`. Set it to the deduplicated union of the row keys. Metadata `keys` stays `[]`. This stamp writes `device:` for the chassis serial. A hostname is a column.
 
 ## State machine
 

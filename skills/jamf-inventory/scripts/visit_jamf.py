@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Jamf computer inventory visit.
+"""Jamf management visit.
 
 collect runs under execute_command with execution_type mcp_orchestration.
-It calls jamf_find_devices, jamf_get_device, and jamf_get_device_health,
-then writes the stamp and the SOAP metadata. annotate runs under
-execution_type standard and replaces only the four SOAP sentences.
+It calls jamf_find_devices and jamf_get_device, then writes the stamp
+and the SOAP metadata. annotate runs under execution_type standard
+and replaces only the four SOAP sentences.
 
 A first visit is a baseline. A later visit writes only the computers
 that changed. A quiet visit rewrites metadata and does not add a stamp.
@@ -25,11 +25,7 @@ except ImportError:
 SECTIONS = [
     "GENERAL",
     "HARDWARE",
-    "OPERATING_SYSTEM",
     "USER_AND_LOCATION",
-    "SECURITY",
-    "DISK_ENCRYPTION",
-    "STORAGE",
 ]
 STAMP_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "jamf-inventory-visit.schema.json"
 META_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "jamf-metadata.schema.json"
@@ -37,18 +33,11 @@ META_REL = "jamf/metadata.json"
 MATERIAL = (
     "name",
     "serial",
-    "model",
-    "os_version",
     "user",
-    "site",
     "managed",
     "supervised",
     "user_approved_mdm",
     "mdm_capable",
-    "filevault",
-    "sip",
-    "firewall",
-    "severity",
     "checked_in",
 )
 
@@ -118,15 +107,6 @@ def first(*values):
     return None
 
 
-def site_name(general, raw):
-    site = general.get("site")
-    if site is None:
-        site = raw.get("site")
-    if isinstance(site, dict):
-        return blank(site.get("name") or site.get("siteName"))
-    return blank(site)
-
-
 def capable(general, raw):
     value = general.get("mdmCapable")
     if value is None:
@@ -175,36 +155,17 @@ def total_of(payload):
     return None
 
 
-def filevault_of(raw, operating):
-    disk = section(raw, "diskEncryption")
-    return blank(
-        first(
-            operating.get("fileVault2Status"),
-            disk.get("fileVault2Status"),
-            disk.get("fileVault2Eligibility"),
-            raw.get("filevault"),
-            raw.get("fileVaultStatus"),
-        )
-    )
-
-
 def normalize(raw, fallback=None):
     base = fallback or {}
     general = section(raw, "general")
     hardware = section(raw, "hardware")
-    operating = section(raw, "operatingSystem")
     located = section(raw, "userAndLocation")
-    security = section(raw, "security")
     remote = section(general, "remoteManagement")
     row = {
         "id": id_of(raw) or base.get("id"),
         "name": blank(first(general.get("name"), raw.get("name"), hardware.get("name"))) or base.get("name") or "",
         "serial": serial_of(raw) or base.get("serial"),
-        "model": blank(first(hardware.get("model"), raw.get("model"), hardware.get("modelIdentifier"))) or base.get("model"),
-        "os": blank(first(operating.get("name"), raw.get("os"), raw.get("osName"))) or base.get("os"),
-        "os_version": blank(first(operating.get("version"), raw.get("osVersion"), raw.get("os_version"))) or base.get("os_version"),
         "user": blank(first(located.get("username"), located.get("realname"), raw.get("username"), raw.get("user"))) or base.get("user"),
-        "site": site_name(general, raw) or base.get("site"),
         "last_contact": blank(
             first(
                 general.get("lastContactTime"),
@@ -214,17 +175,10 @@ def normalize(raw, fallback=None):
             )
         )
         or base.get("last_contact"),
-        "last_ip": blank(first(general.get("lastIpAddress"), general.get("lastReportedIp"), raw.get("lastIp"), raw.get("last_ip")))
-        or base.get("last_ip"),
         "managed": as_bool(first(remote.get("managed"), general.get("managed"), raw.get("managed"))),
         "supervised": as_bool(first(general.get("supervised"), raw.get("supervised"))),
         "user_approved_mdm": as_bool(first(general.get("userApprovedMdm"), raw.get("userApprovedMdm"), raw.get("user_approved_mdm"))),
         "mdm_capable": capable(general, raw),
-        "filevault": filevault_of(raw, operating) or base.get("filevault"),
-        "sip": blank(first(security.get("sipStatus"), security.get("systemIntegrityProtection"), raw.get("sip"))) or base.get("sip"),
-        "firewall": as_bool(first(security.get("firewallEnabled"), raw.get("firewall"))),
-        "severity": base.get("severity"),
-        "findings": list(base.get("findings") or []),
         "note": base.get("note") or "",
     }
     if row["managed"] is None:
@@ -235,29 +189,21 @@ def normalize(raw, fallback=None):
         row["user_approved_mdm"] = base.get("user_approved_mdm")
     if row["mdm_capable"] is None:
         row["mdm_capable"] = base.get("mdm_capable")
-    if row["firewall"] is None:
-        row["firewall"] = base.get("firewall")
     return row
 
 
 def row_keys(row):
-    keys = []
     serial = row.get("serial")
     if isinstance(serial, str) and serial and not serial.startswith(" "):
-        keys.append(f"device:{serial}")
-    site = row.get("site")
-    if isinstance(site, str) and site.strip() and not site.startswith(" "):
-        keys.append(f"site:{site.strip()}")
-    return keys
+        return [f"device:{serial}"]
+    return []
 
 
 def emit(row, note):
     body = dict(row)
     body.pop("_partial", None)
-    body.pop("_health_miss", None)
     body["keys"] = row_keys(body)
     body["note"] = note[:200]
-    body["findings"] = [str(item)[:160] for item in (body.get("findings") or [])[:5]]
     if not body.get("id"):
         return None
     body["id"] = str(body["id"])
@@ -304,26 +250,6 @@ def pick_live(rows):
         return None
     checked.sort(key=lambda row: row.get("last_contact") or "")
     return checked[-1]
-
-
-def health_fields(payload):
-    body = payload.get("health") if isinstance(payload.get("health"), dict) else payload
-    if not isinstance(body, dict):
-        return None, []
-    severity = blank(body.get("severity"))
-    findings = []
-    raw = body.get("findings")
-    if isinstance(raw, list):
-        for item in raw:
-            if len(findings) >= 5:
-                break
-            if isinstance(item, str) and item.strip():
-                findings.append(item.strip()[:160])
-            elif isinstance(item, dict):
-                text = blank(item.get("summary") or item.get("message") or item.get("title"))
-                if text:
-                    findings.append(text[:160])
-    return severity, findings
 
 
 def find_pages(serial, budget):
@@ -390,19 +316,6 @@ def enrich(raw, budget, prior_row=None):
             row = normalize(detailed[0], fallback=row)
         else:
             row["_partial"] = True
-    if row.get("managed") is True or row.get("last_contact"):
-        payload, err = call("jamf_get_device_health", {"computer_id": str(row["id"])}, budget)
-        if err:
-            row["_health_miss"] = True
-            if prior_row and row.get("severity") is None:
-                row["severity"] = prior_row.get("severity")
-                row["findings"] = list(prior_row.get("findings") or [])
-        else:
-            severity, findings = health_fields(payload)
-            if severity:
-                row["severity"] = severity
-            if findings:
-                row["findings"] = findings
     return row
 
 
@@ -423,41 +336,49 @@ def headline(rows, serial, live):
     return f"{len(rows)} Jamf computers. {managed_count} managed and checking in."
 
 
+def yn(value):
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    return "unset"
+
+
 def judge(rows, serial, live):
-    partial = any(row.get("_partial") or row.get("_health_miss") for row in rows)
+    partial = any(row.get("_partial") for row in rows)
     coverage = "partial" if partial else "complete"
     if not rows:
         return "unknown", coverage
     if serial and (not live or live.get("managed") is not True):
         return "degraded", coverage
-    if serial and (live.get("_partial") or live.get("_health_miss")):
+    if serial and live.get("_partial"):
         return "degraded", coverage
-    if not serial and any(row.get("_partial") or row.get("_health_miss") for row in rows):
+    if not serial and any(row.get("_partial") for row in rows):
         return "degraded", coverage
     return "ok", coverage
 
 
 def soap_draft(serial, rows, live, status, coverage, rel, delta):
     if serial:
-        subjective = f"Jamf inventory for serial {serial}."
+        subjective = f"Jamf management check for serial {serial}."
     else:
-        subjective = "Jamf inventory for the computers in this tenant."
+        subjective = "Jamf management check for the computers in this tenant."
     if not rows:
         objective = f"Jamf returned no computer. Proof {rel}."
         assessment = "No enrolled computer matched this visit."
     elif live:
-        approved = "false" if live.get("user_approved_mdm") is False else "true" if live.get("user_approved_mdm") else "unset"
         stubs = [row["id"] for row in rows if row["id"] != live["id"] and row.get("serial") == live.get("serial")]
         stub_text = f" Stub id {', '.join(stubs)}." if stubs else ""
+        whose = live.get("user") or "unassigned"
         objective = (
-            f"{len(rows)} in scope. Live id {live['id']} {live.get('name')} "
-            f"{live.get('os') or ''} {live.get('os_version') or ''} severity {live.get('severity') or 'unset'}."
+            f"{len(rows)} in scope. Live id {live['id']} {live.get('name')} user {whose}."
             f"{stub_text} Proof {rel}."
         )
         assessment = (
-            f"id {live['id']} is {'managed' if live.get('managed') else 'not managed'} "
-            f"and {'checked in' if live.get('last_contact') else 'not checked in'}. "
-            f"User-approved MDM is {approved}."
+            f"id {live['id']} belongs to {whose}. "
+            f"Managed {yn(live.get('managed'))}, supervised {yn(live.get('supervised'))}, "
+            f"user-approved MDM {yn(live.get('user_approved_mdm'))}, "
+            f"MDM capable {yn(live.get('mdm_capable'))}."
         )
     else:
         objective = f"{len(rows)} Jamf records and none are managed and checking in. Proof {rel}."
@@ -733,7 +654,7 @@ def cmd_collect(args):
             base_ref = baseline_ref_for(meta, prior)
         stamp = {
             "keys": sorted({key for row in kept for key in row["keys"]} | {key for item in removed for key in item["keys"]}),
-            "schema": "jamf-inventory/v1",
+            "schema": "jamf-inventory/v2",
             "source": "jamf",
             "watch_id": ident,
             "checked_at": checked_at(now),
@@ -803,8 +724,11 @@ def cmd_collect(args):
             "live_id": None if live is None else str(live["id"]),
             "live_name": None if live is None else live.get("name"),
             "serial": None if live is None else live.get("serial"),
+            "user": None if live is None else live.get("user"),
             "managed": None if live is None else live.get("managed"),
-            "severity": None if live is None else live.get("severity"),
+            "supervised": None if live is None else live.get("supervised"),
+            "user_approved_mdm": None if live is None else live.get("user_approved_mdm"),
+            "mdm_capable": None if live is None else live.get("mdm_capable"),
             "stubs": stubs,
             "quiet": no_motion,
             "plan": plan,
