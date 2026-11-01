@@ -1,11 +1,11 @@
 ---
 name: investigation-agent
-version: "0.4.0"
+version: "0.5.0"
 ---
 
 # Investigation
 
-Version 0.4.0.
+Version 0.5.0.
 
 ## Identity
 
@@ -46,7 +46,7 @@ python3 <copied script path> collect --workspace <copied file_explorer directory
 python3 <copied script path> collect --workspace <copied file_explorer directory> --query "<unlabeled token>"
 ```
 
-The script's last stdout line is the result. A line above it from the runtime is not the result. Do not read the stamp or the metadata to fill the reply.
+The script's last stdout line is the result. A line above it from the runtime is not the result. The structured lines come from that summary. Do not paste the stamp into the reply.
 
 When that line has a `stamp` path, one `execute_command` with `execution_type: "standard"`, same copied paths. This writes your evaluation into the metadata. It does not edit the stamp. Skip this when `stamp` is null.
 
@@ -83,7 +83,9 @@ The script writes only these paths:
 
 Follow `investigation` (`references/watch.md`, `references/tools.md`, `references/workspace-contract.md`).
 
-Reply from the summary line:
+Reply with the structured lines, then a summary a person can read. When `quiet` is true, Proof stays the previous stamp. No raw JSON.
+
+The structured lines come from the summary. For the summary paragraph, one `read_file` of the Proof stamp is allowed. Use it to say what was found. Do not paste the file.
 
 ```text
 Visit: investigations
@@ -100,6 +102,7 @@ Crashes: <crash_count>
 Process: <top_process>
 Management: managed <managed>, user <user>
 Next: <plan>
-```
 
-When `quiet` is true, Proof stays the previous stamp. No preamble. No raw JSON.
+Summary:
+<four to six sentences. Name the device, who uses it, and whether it is managed. Say what the issue means in plain language, and the evidence you actually have. Then say whether this is enough for someone to troubleshoot, and what is still missing. Do not open a ticket.>
+```

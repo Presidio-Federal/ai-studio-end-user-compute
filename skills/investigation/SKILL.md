@@ -1,7 +1,7 @@
 ---
 name: investigation
-version: "0.4.0"
-description: "v0.4.0 — List attached device sources when no endpoint is chosen, then consolidate that endpoint from Jamf and Nexthink."
+version: "0.5.0"
+description: "v0.5.0 — List devices until one is chosen, consolidate it from Jamf and Nexthink, and end with a plain summary."
 ---
 
 # Investigation
@@ -33,7 +33,7 @@ Paths and catalog: **`workspace-handoff`**. When and how: `references/workspace-
 
 Use exactly: `references/watch.md`, `references/tools.md`, `references/workspace-contract.md`, `schemas/investigations-visit.schema.json`, `schemas/investigations-metadata.schema.json`, `examples/investigations-visit.example.json`, `examples/investigations-metadata.example.json`. Do not search the workspace for them.
 
-**Chosen endpoint:** one `execute_command`, `execution_type: "mcp_orchestration"`, the collect command in `references/watch.md`. Do not set `timeout`. The call is the command and `execution_type` only. Then one `annotate` command under `execution_type: "standard"` when the summary `stamp` is a path. Those sentences are the evaluation. They name the proof path and the endpoint state. They do not list health rows. Reply from the summary line. If stderr says `hai_mcp unavailable`, stop. Do not start this step while the endpoint is still unchosen.
+**Chosen endpoint:** one `execute_command`, `execution_type: "mcp_orchestration"`, the collect command in `references/watch.md`. Do not set `timeout`. The call is the command and `execution_type` only. Then one `annotate` command under `execution_type: "standard"` when the summary `stamp` is a path. Those sentences are the evaluation. They name the proof path and the endpoint state. They do not list health rows. Reply with the structured lines, then the plain summary in `references/watch.md`. If stderr says `hai_mcp unavailable`, stop. Do not start this step while the endpoint is still unchosen.
 
 ## Canonical top-level keys
 

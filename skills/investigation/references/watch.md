@@ -37,7 +37,7 @@ If stderr says `hai_mcp unavailable`, stop. Do not collect by hand. Do not read 
 
 ## Reply
 
-Use the summary line. No preamble.
+The structured lines come from the summary. Then write a summary a person can read. One `read_file` of the Proof stamp is allowed for that paragraph. Do not paste the file. When `quiet` is true, Proof stays the previous path. No raw JSON.
 
 ```text
 Visit: investigations
@@ -54,6 +54,7 @@ Crashes: <crash_count>
 Process: <top_process>
 Management: managed <managed>, user <user>
 Next: <plan>
-```
 
-When `quiet` is true, this visit added no stamp. Proof stays the previous path.
+Summary:
+<four to six sentences. Name the device, who uses it, and whether it is managed. Say what the issue means in plain language, and the evidence you actually have. Then say whether this is enough for someone to troubleshoot, and what is still missing. Do not open a ticket.>
+```
