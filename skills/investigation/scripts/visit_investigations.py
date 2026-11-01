@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""Investigation visit.
+"""Investigations visit.
 
-collect runs under execute_command with execution_type mcp_orchestration.
-It calls Jamf and Nexthink, then writes the investigations stamp and the
-SOAP metadata. annotate runs under execution_type standard and replaces
-only the four SOAP sentences.
-
-One device per visit. The first visit is a baseline. A later visit writes
-only what changed about that device's issue. A quiet visit rewrites
-metadata and does not add a stamp.
+collect runs under mcp_orchestration. It calls Jamf and Nexthink for one
+chosen endpoint, fills the schema, and writes the stamp. commit writes a
+record the agent already built. Neither command chooses which endpoint.
 """
 import argparse
 import json
@@ -24,24 +19,14 @@ except ImportError:
     print('{"error": "workspace-handoff skill is not attached"}', file=sys.stderr)
     sys.exit(1)
 
-SECTIONS = ["GENERAL", "HARDWARE", "USER_AND_LOCATION"]
 STAMP_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "investigations-visit.schema.json"
 META_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "investigations-metadata.schema.json"
 META_REL = "investigations/metadata.json"
+MATERIAL = ("issue", "serial", "user", "managed", "crash_count", "top_process", "signal")
+SECTIONS = ["GENERAL", "HARDWARE", "USER_AND_LOCATION"]
 NAME_RE = re.compile(r"[A-Za-z0-9._-]{1,128}")
 USER_RE = re.compile(r"[A-Za-z0-9._@+-]{1,128}")
 INTEREST = ("crash", "cpu", "memory", "disk", "free", "dex", "boot", "score", "process", "freeze", "health")
-MATERIAL = ("issue", "serial", "user", "managed", "crash_count", "top_process", "signal")
-ISSUES = {
-    "application_crashes",
-    "experience_recorded",
-    "experience_unread",
-    "not_in_nexthink",
-    "not_in_jamf",
-    "no_signal",
-    "discovered",
-    "unknown",
-}
 
 
 def strip_arg(value):
@@ -49,25 +34,6 @@ def strip_arg(value):
     if len(text) >= 2 and text[0] == text[-1] and text[0] in "\"'":
         return text[1:-1].strip()
     return text
-
-
-def blank(value):
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def as_bool(value):
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        low = value.strip().lower()
-        if low in ("true", "yes"):
-            return True
-        if low in ("false", "no"):
-            return False
-    return None
 
 
 def sentence(text):
@@ -85,338 +51,20 @@ def watch_id(now):
     return now.strftime("%Y-%m-%dT%H-%M-%SZ")
 
 
-def call(tool, args, budget):
-    if budget.exhausted():
-        return None, "budget exhausted"
-    print(f"investigations call {tool}", file=sys.stderr)
-    envelope = visit_common.mcp_call(tool, args, retries=1)
-    return visit_common.tool_dict(envelope)
-
-
-def section(raw, name):
-    value = raw.get(name) if isinstance(raw, dict) else None
-    return value if isinstance(value, dict) else {}
-
-
-def first(*values):
-    for value in values:
-        if isinstance(value, str):
-            text = value.strip()
-            if text:
-                return text
-        elif value is not None and not isinstance(value, (dict, list)):
-            return value
-    return None
-
-
-def cell(row, *names):
-    if not isinstance(row, dict):
-        return None
-    folded = {str(key).lower(): value for key, value in row.items()}
-    for name in names:
-        if name.lower() in folded:
-            return blank(folded[name.lower()])
-    for key, value in folded.items():
-        if any(name.lower() in key for name in names):
-            return blank(value)
-    return None
-
-
-def rows_from(payload):
-    if not isinstance(payload, dict):
-        return []
-    for key in ("devices", "results", "computers"):
-        value = payload.get(key)
-        if isinstance(value, list):
-            return [item for item in value if isinstance(item, dict)]
-    device = payload.get("device")
-    if isinstance(device, dict):
-        return [device]
-    return []
-
-
-def nql_rows(payload):
-    if not isinstance(payload, dict):
-        return []
-    data = payload.get("data")
-    headers = payload.get("headers")
-    if isinstance(data, list) and data and isinstance(data[0], dict):
-        return data
-    if isinstance(data, list) and isinstance(headers, list):
-        rows = []
-        for item in data:
-            if isinstance(item, list):
-                rows.append({str(headers[i]): item[i] if i < len(item) else None for i in range(len(headers))})
-        return rows
-    return []
-
-
-def nql(query_id, parameters, budget):
-    payload, err = call("nexthink_nql_execute", {"query_id": query_id, "parameters": parameters}, budget)
-    if err:
-        return None, err
-    return nql_rows(payload), None
-
-
-def serial_of(raw):
-    hardware = section(raw, "hardware")
-    general = section(raw, "general")
-    return blank(first(hardware.get("serialNumber"), raw.get("serial"), general.get("serialNumber")))
-
-
-def id_of(raw):
-    general = section(raw, "general")
-    return blank(first(raw.get("id"), general.get("id")))
-
-
-def capable(general, raw):
-    value = general.get("mdmCapable")
-    if value is None:
-        value = raw.get("mdmCapable")
-    if isinstance(value, dict):
-        return as_bool(value.get("capable"))
-    return as_bool(value)
-
-
-def normalize_jamf(raw):
-    general = section(raw, "general")
-    hardware = section(raw, "hardware")
-    located = section(raw, "userAndLocation")
-    remote = section(general, "remoteManagement")
-    return {
-        "id": id_of(raw),
-        "name": blank(first(general.get("name"), raw.get("name"))) or "",
-        "serial": serial_of(raw),
-        "user": blank(first(located.get("username"), located.get("realname"), raw.get("username"))),
-        "last_contact": blank(first(general.get("lastContactTime"), raw.get("lastContactTime"))),
-        "managed": as_bool(first(remote.get("managed"), general.get("managed"), raw.get("managed"))),
-        "supervised": as_bool(first(general.get("supervised"), raw.get("supervised"))),
-        "user_approved_mdm": as_bool(first(general.get("userApprovedMdm"), raw.get("userApprovedMdm"))),
-        "mdm_capable": capable(general, raw),
-    }
-
-
-def pick_live(rows):
-    checked = [row for row in rows if row.get("managed") is True and row.get("last_contact")]
-    if not checked:
-        checked = [row for row in rows if row.get("last_contact")]
-    if not checked:
-        return rows[0] if rows else None
-    checked.sort(key=lambda row: row.get("last_contact") or "")
-    return checked[-1]
-
-
-def find_jamf(serial, name, user, budget):
-    args = {"page": 0, "page_size": 100}
-    if serial:
-        args["serial"] = serial
-    elif name:
-        args["name"] = name
-    elif user:
-        args["email" if "@" in user else "username"] = user
-    payload, err = call("jamf_find_devices", args, budget)
-    if err:
-        return None, err
-    rows = [normalize_jamf(raw) for raw in rows_from(payload)]
-    rows = [row for row in rows if row.get("id")]
-    if serial:
-        rows = [row for row in rows if row.get("serial") == serial]
-        filtered, filter_err = call(
-            "jamf_find_devices",
-            {"filter": f'hardware.serialNumber=="{serial}"', "page": 0, "page_size": 100},
-            budget,
-        )
-        if not filter_err:
-            extra = [normalize_jamf(raw) for raw in rows_from(filtered)]
-            rows.extend(row for row in extra if row.get("serial") == serial and row.get("id"))
-    elif name:
-        exact = [row for row in rows if row.get("name") == name]
-        if exact:
-            rows = exact
-    elif user and "@" not in user:
-        exact = [row for row in rows if (row.get("user") or "").lower() == user.lower()]
-        if exact:
-            rows = exact
-    by_id = {}
-    for row in rows:
-        by_id[str(row["id"])] = row
-    chosen = pick_live(list(by_id.values()))
-    if chosen is None:
-        return None, None
-    detail, detail_err = call(
-        "jamf_get_device",
-        {"computer_id": str(chosen["id"]), "sections": SECTIONS},
-        budget,
-    )
-    if detail_err:
-        chosen["_partial"] = True
-        return chosen, None
-    detailed = rows_from(detail)
-    if detailed:
-        merged = normalize_jamf(detailed[0])
-        for key, value in chosen.items():
-            if merged.get(key) in (None, "") and value not in (None, ""):
-                merged[key] = value
-        return merged, None
-    chosen["_partial"] = True
-    return chosen, None
-
-
-def pick_nexthink(rows, jamf_row):
-    usable = [row for row in rows if isinstance(row, dict)]
-    if jamf_row and jamf_row.get("name"):
-        exact = [row for row in usable if cell(row, "device.name") == jamf_row["name"]]
-        if exact:
-            usable = exact
-    if not usable:
-        return {}, 0
-    usable.sort(key=lambda row: cell(row, "device.last_seen") or "")
-    return usable[-1], len(rows)
-
-
-def lookup_by_name(device_name, budget):
-    rows, err = nql("#mcp_device_lookup", {"device_name": device_name, "user_name": "*"}, budget)
-    if err:
-        return None, 0, err
-    exact = [row for row in rows if cell(row, "device.name") == device_name]
-    chosen, count = pick_nexthink(exact or rows, None)
-    return chosen, count, None
-
-
-def lookup_by_user(user, jamf_row, budget):
-    people, err = nql("#mcp_user_lookup", {"user_name": user}, budget)
-    login = user
-    if not err and people:
-        login = cell(people[0], "user.name") or user
-    rows, derr = nql("#mcp_device_lookup", {"device_name": "*", "user_name": login}, budget)
-    if derr:
-        return None, 0, derr
-    if not rows and login != user:
-        rows, derr = nql("#mcp_device_lookup", {"device_name": "*", "user_name": user}, budget)
-        if derr:
-            return None, 0, derr
-    chosen, count = pick_nexthink(rows, jamf_row)
-    return chosen, count, None
-
-
-def locate(serial, name, user, budget):
-    lookup = "serial" if serial else "name" if name else "user"
-    jamf_row, jamf_err = find_jamf(serial or None, name or None, user or None, budget)
-    if lookup == "user":
-        nexthink_row, matches, lookup_err = lookup_by_user(user, jamf_row, budget)
-    else:
-        device_name = (jamf_row or {}).get("name") or name
-        if device_name:
-            nexthink_row, matches, lookup_err = lookup_by_name(device_name, budget)
-        else:
-            nexthink_row, matches, lookup_err = {}, 0, None
-    device_name = cell(nexthink_row or {}, "device.name") or (jamf_row or {}).get("name") or name or ""
-    return jamf_row, nexthink_row, lookup, matches, jamf_err, lookup_err, device_name
-
-
-def signals_from(rows):
-    if not rows:
-        return []
-    picked = []
-    seen = set()
-    for row in rows[:3]:
-        if not isinstance(row, dict):
-            continue
-        ranked = sorted(
-            row.items(),
-            key=lambda item: 0 if any(word in str(item[0]).lower() for word in INTEREST) else 1,
-        )
-        for key, value in ranked:
-            if not isinstance(value, (str, int, float, bool)) or value == "":
-                continue
-            name = str(key)[:80]
-            if name in seen:
-                continue
-            if not any(word in name.lower() for word in INTEREST) and len(picked) >= 4:
-                continue
-            seen.add(name)
-            picked.append({"name": name, "value": str(value)[:80]})
-            if len(picked) >= 12:
-                return picked
-    return picked
-
-
-def top_process(rows):
-    for row in rows:
-        value = cell(row, "process", "binary", "application", "name")
-        if value and value not in ("*",):
-            return value[:80]
-    return None
-
-
-def classify(jamf_row, nexthink_row, health_rows, crash_rows, health_err, lookup_err):
-    in_jamf = bool(jamf_row and jamf_row.get("id"))
-    in_nexthink = bool(nexthink_row)
-    if lookup_err and not in_jamf:
-        return "unknown"
-    if not in_jamf and not in_nexthink:
-        return "unknown"
-    if not in_jamf:
-        return "not_in_jamf"
-    if lookup_err or not in_nexthink:
-        return "not_in_nexthink"
-    if crash_rows:
-        return "application_crashes"
-    if health_err:
-        return "experience_unread"
-    if health_rows:
-        return "experience_recorded"
-    return "no_signal"
-
-
-def signal_text(signals):
-    parts = [f"{item['name']}={item['value']}" for item in signals]
-    return "; ".join(parts)[:200]
-
-
 def row_keys(serial):
     if isinstance(serial, str) and serial:
         return [f"device:{serial}"]
     return []
 
 
-def build_device(jamf_row, nexthink_row, health_rows, crash_rows, process_rows, health_err, lookup_err, name_arg, lookup, matches):
-    jamf_row = jamf_row or {}
-    nexthink_row = nexthink_row or {}
-    name = jamf_row.get("name") or cell(nexthink_row, "device.name") or name_arg or ""
-    serial = jamf_row.get("serial")
-    issue = classify(jamf_row, nexthink_row, health_rows, crash_rows, health_err, lookup_err)
-    signals = signals_from(health_rows)
-    process = top_process(process_rows)
-    device = {
-        "keys": row_keys(serial),
-        "id": serial or name or "unknown",
-        "name": name,
-        "serial": serial,
-        "user": jamf_row.get("user") or cell(nexthink_row, "device.login.last_login_user_name"),
-        "jamf_id": None if not jamf_row.get("id") else str(jamf_row["id"]),
-        "managed": jamf_row.get("managed"),
-        "supervised": jamf_row.get("supervised"),
-        "user_approved_mdm": jamf_row.get("user_approved_mdm"),
-        "mdm_capable": jamf_row.get("mdm_capable"),
-        "collector_uid": cell(nexthink_row, "device.collector.uid"),
-        "platform": cell(nexthink_row, "device.operating_system.platform"),
-        "last_seen": cell(nexthink_row, "device.last_seen") or jamf_row.get("last_contact"),
-        "lookup": lookup,
-        "matches": matches,
-        "issue": issue,
-        "crash_count": None if crash_rows is None else len(crash_rows),
-        "top_process": process,
-        "signals": signals,
-        "note": "",
-        "signal": signal_text(signals),
-        "_partial": bool(jamf_row.get("_partial") or health_err or lookup_err),
-    }
-    return device
-
-
-def signature(row):
-    return {field: row.get(field) for field in MATERIAL}
+def signal_text(signals):
+    if not isinstance(signals, list):
+        return ""
+    parts = []
+    for item in signals:
+        if isinstance(item, dict) and item.get("name") is not None:
+            parts.append(f"{item.get('name')}={item.get('value')}")
+    return "; ".join(parts)[:200]
 
 
 def show(value):
@@ -427,78 +75,10 @@ def show(value):
     return str(value)
 
 
-def diff_rows(prior, current):
-    changes = []
-    before = signature(prior)
-    after = signature(current)
-    for field in MATERIAL:
-        if before.get(field) != after.get(field):
-            changes.append(
-                {
-                    "id": str(current.get("id")),
-                    "field": field,
-                    "prior": show(before.get(field)),
-                    "current": show(after.get(field)),
-                }
-            )
-    return changes
-
-
-def yn(value):
-    if value is True:
-        return "true"
-    if value is False:
-        return "false"
-    return "unset"
-
-
-def headline(device, scope):
-    if device.get("issue") == "unknown":
-        return f"No Jamf or Nexthink record matched {scope}."
-    name = device.get("name") or "unnamed"
-    serial = device.get("serial") or "no serial"
-    crashes = device.get("crash_count")
-    crash_text = "" if crashes is None else f" {crashes} crash rows."
-    return f"{serial} {name} issue {device.get('issue')}.{crash_text}"[:400]
-
-
-def judge(device):
-    issue = device.get("issue")
-    coverage = "partial" if device.get("_partial") else "complete"
-    if issue == "unknown":
-        return "unknown", coverage
-    if issue in ("application_crashes", "experience_unread", "not_in_jamf", "not_in_nexthink"):
-        return "degraded", coverage
-    return "ok", coverage
-
-
-def soap_draft(scope, device, status, coverage, rel, delta):
-    kind = {"serial": "serial", "name": "hostname", "user": "username"}.get(device.get("lookup"), "subject")
-    subjective = f"Investigation of {kind} {scope.split(':', 1)[-1]}."
-    issue = device.get("issue")
-    if issue == "unknown":
-        objective = f"Jamf and Nexthink returned no device. Proof {rel}."
-        assessment = "This visit cannot tell what the end user is hitting."
-    else:
-        whose = device.get("user") or "unassigned"
-        crashes = device.get("crash_count")
-        crash_text = "crash rows unread" if crashes is None else f"{crashes} crash rows"
-        objective = (
-            f"{device.get('name') or 'unnamed'} user {whose}. Issue {issue}. {crash_text}. Proof {rel}."
-        )
-        assessment = (
-            f"Issue {issue} on {device.get('name') or 'unnamed'}. "
-            f"Managed {yn(device.get('managed'))}."
-        )
-    if coverage != "complete":
-        assessment = "Part of the read failed. " + assessment
-    if delta == "unchanged":
-        plan = "No material change since the last stamp. This visit does not open a ticket."
-    else:
-        plan = "A later visit opens the ticket from this stamp. This visit does not."
-    if status == "unknown":
-        plan = "Check the device name or serial, then run the visit again."
-    return sentence(subjective), sentence(objective), sentence(assessment), sentence(plan)
+def signature(row):
+    data = {field: row.get(field) for field in MATERIAL if field != "signal"}
+    data["signal"] = signal_text(row.get("signals"))
+    return data
 
 
 def resolve_workspace(given):
@@ -513,7 +93,6 @@ def resolve_workspace(given):
     if not resolved.is_dir():
         print('{"error": "workspace directory is missing"}', file=sys.stderr)
         return None
-    print(f"investigations workspace={resolved}", file=sys.stderr)
     return resolved
 
 
@@ -573,6 +152,51 @@ def fold(ws, meta):
     return estate, chain[-1] if chain else None
 
 
+def soap_args(args):
+    updates = {}
+    for field in ("subjective", "objective", "assessment", "plan"):
+        text = strip_arg(getattr(args, field))
+        if not text or len(text) > 400 or "{" in text:
+            print(json.dumps({"error": f"{field} must be one sentence under 400 characters with no JSON"}), file=sys.stderr)
+            return None
+        updates[field] = text
+    return updates
+
+
+def load_record(path):
+    raw_path = strip_arg(path)
+    if raw_path == "-":
+        raw = sys.stdin.read()
+    else:
+        file_path = Path(raw_path).expanduser()
+        if not file_path.is_file():
+            print('{"error": "record file is missing"}', file=sys.stderr)
+            return None
+        raw = file_path.read_text(encoding="utf-8")
+    try:
+        record = json.loads(raw)
+    except json.JSONDecodeError:
+        print('{"error": "record is not JSON"}', file=sys.stderr)
+        return None
+    if not isinstance(record, dict) or not isinstance(record.get("devices"), list):
+        print('{"error": "record needs a devices list"}', file=sys.stderr)
+        return None
+    return record
+
+
+def prepare_device(row, note):
+    if not isinstance(row, dict) or not row.get("id"):
+        return None
+    body = dict(row)
+    body["id"] = str(body["id"])
+    body["name"] = body.get("name") or ""
+    body["keys"] = row_keys(body.get("serial"))
+    body["note"] = note[:200]
+    if not isinstance(body.get("signals"), list):
+        body["signals"] = []
+    return body
+
+
 def metadata(now, **fields):
     body = {
         "keys": [],
@@ -597,248 +221,108 @@ def metadata(now, **fields):
     return body
 
 
-def save_meta(ws, body):
-    write_json(Path(ws) / META_REL, body)
-
-
 def reply(payload):
     print(visit_common.summary(payload))
 
 
-def fail(ws, meta, now, reason):
-    prior_delta = (meta or {}).get("delta")
-    if prior_delta not in ("first", "unchanged", "changed", "unread"):
-        prior_delta = "unread"
-    try:
-        body = metadata(
-            now,
-            evidence_ref=(meta or {}).get("evidence_ref"),
-            last_visit_id=(meta or {}).get("last_visit_id"),
-            last_collected_at=(meta or {}).get("last_collected_at"),
-            baseline_ref=(meta or {}).get("baseline_ref"),
-            status="unknown",
-            coverage="unavailable",
-            delta=prior_delta,
-            devices=(meta or {}).get("devices") if isinstance((meta or {}).get("devices"), int) else 0,
-            issue=(meta or {}).get("issue") if (meta or {}).get("issue") in ISSUES else None,
-            subjective=sentence("Investigation did not complete."),
-            objective=sentence(reason),
-            assessment=sentence("The read failed, so this visit does not change the last stamp."),
-            plan=sentence("Run the visit again once Jamf and Nexthink answer."),
-        )
-    except ValueError as exc:
-        print(json.dumps({"error": str(exc)[:500]}), file=sys.stderr)
-        return 1
-    save_meta(ws, body)
-    print(json.dumps({"error": reason[:200]}), file=sys.stderr)
-    reply(
-        {
-            "plane": "investigations",
-            "status": "unknown",
-            "coverage": "unavailable",
-            "stamp": None,
-            "metadata": META_REL,
-            "delta": prior_delta,
-            "devices": body["devices"],
-            "issue": body["issue"],
-            "quiet": False,
-            "plan": body["plan"],
-        }
-    )
-    return 1
-
-
-def baseline_ref_for(meta, prior):
-    if not prior:
-        return None
-    if prior.get("baseline_ref"):
-        return prior["baseline_ref"]
-    ident = prior.get("watch_id")
-    if ident:
-        return f"investigations/{ident}.json"
-    return (meta or {}).get("baseline_ref")
-
-
-def emit(row, note):
-    body = {key: value for key, value in row.items() if not key.startswith("_")}
-    body.pop("signal", None)
-    body["note"] = note[:200]
-    body["id"] = str(body.get("id") or "")
-    if not body["id"]:
-        return None
-    body["name"] = body.get("name") or ""
-    body["keys"] = row_keys(body.get("serial"))
-    return body
-
-
-def resolve_query(query, budget):
-    """The task did not say which kind of identifier this is. Try serial, then hostname, then username."""
-    if "@" in query:
-        return "", "", query
-    if query.isalnum():
-        found, err = find_jamf(query, None, None, budget)
-        if found and not err:
-            return query, "", ""
-    found, err = find_jamf(None, query, None, budget)
-    if found and not err and found.get("name") == query:
-        return "", query, ""
-    return "", "", query
-
-
-def cmd_collect(args):
+def cmd_commit(args):
     ws = resolve_workspace(args.workspace)
     if ws is None:
         return 1
-    serial = strip_arg(args.serial)
-    name = strip_arg(args.name)
-    user = strip_arg(args.user)
-    query = strip_arg(args.query)
-    if serial and not serial.isalnum():
-        print('{"error": "serial must be letters and digits"}', file=sys.stderr)
+    soap = soap_args(args)
+    record = load_record(args.record)
+    if soap is None or record is None:
         return 1
-    if name and not NAME_RE.fullmatch(name):
-        print('{"error": "name must be letters, digits, dot, underscore, or hyphen"}', file=sys.stderr)
-        return 1
-    if user and not USER_RE.fullmatch(user):
-        print('{"error": "user must be letters, digits, dot, underscore, plus, hyphen, or email"}', file=sys.stderr)
-        return 1
-    if query and not USER_RE.fullmatch(query):
-        print('{"error": "query must be a serial, hostname, or username"}', file=sys.stderr)
-        return 1
+    return save_record(ws, record, soap)
+
+
+def save_record(ws, record, soap):
     now = datetime.now(timezone.utc)
     meta = load_meta(ws)
     folded, prior = fold(ws, meta)
     if folded is None:
         print('{"error": "prior stamp chain is unreadable"}', file=sys.stderr)
         return 1
-    if not serial and not name and not user and not query:
-        print('{"error": "pass --serial, --name, --user, or --query for one chosen endpoint"}', file=sys.stderr)
-        return 1
-    budget = visit_common.Budget(240)
-    if query and not serial and not name and not user:
-        serial, name, user = resolve_query(query, budget)
-    lookup_kind = "serial" if serial else "name" if name else "user"
-    scope = f"{lookup_kind}:{serial or name or user}"
-    jamf_row, nexthink_row, lookup_kind, matches, jamf_err, lookup_err, device_name = locate(
-        serial or None, name or None, user or None, budget
-    )
-    health_rows = []
-    crash_rows = []
-    process_rows = []
-    health_err = None
-    if device_name and not lookup_err:
-        health_rows, health_err = nql("#mcp_device_health", {"device_name": device_name}, budget)
-        crash_rows, crash_err = nql(
-            "#mcp_app_crashes",
-            {"device_name": device_name, "binary_name": "*"},
-            budget,
-        )
-        process_rows, process_err = nql("#mcp_device_top_processes", {"device_name": device_name}, budget)
-        if crash_err:
-            crash_rows = None
-            health_err = health_err or crash_err
-        if process_err:
-            process_rows = []
-            health_err = health_err or process_err
-        if health_err and health_rows is None:
-            health_rows = []
-    elif lookup_err:
-        crash_rows = None
-    if jamf_err and not jamf_row and lookup_err:
-        return fail(ws, meta, now, jamf_err or lookup_err)
-    device = build_device(
-        jamf_row,
-        nexthink_row,
-        health_rows or [],
-        crash_rows,
-        process_rows or [],
-        health_err or lookup_err,
-        lookup_err,
-        name or device_name,
-        lookup_kind,
-        matches,
-    )
-    if jamf_err and not jamf_row:
-        device["_partial"] = True
-    status, coverage = judge(device)
-    prior_row = folded.get(str(device["id"]))
-    if prior_row is None and serial:
-        prior_row = next((row for row in folded.values() if row.get("serial") == serial), None)
-    if prior_row is None and device.get("name"):
-        prior_row = next((row for row in folded.values() if row.get("name") == device.get("name")), None)
-    if prior_row is None and user:
-        prior_row = next((row for row in folded.values() if (row.get("user") or "").lower() == user.lower()), None)
-    changes = diff_rows(prior_row, device) if prior_row else []
     first = prior is None or not folded
-    removed_ids = []
-    if prior_row and str(prior_row.get("id")) != str(device.get("id")):
-        removed_ids.append(str(prior_row["id"]))
-    no_motion = (not first) and prior_row is not None and (not changes) and device.get("issue") != "unknown"
-    if device.get("issue") == "unknown" and prior_row and prior_row.get("issue") == "unknown":
-        no_motion = True
-        changes = []
+    note = "Baseline." if first else "Changed."
+    devices = [row for row in (prepare_device(item, note) for item in record["devices"]) if row]
+    if not devices:
+        print('{"error": "record has no device with an id"}', file=sys.stderr)
+        return 1
+    changes = []
+    current_ids = set()
+    for row in devices:
+        current_ids.add(str(row["id"]))
+        old = folded.get(str(row["id"]))
+        if old:
+            before = signature(old)
+            after = signature(row)
+            for field in MATERIAL:
+                if before.get(field) != after.get(field):
+                    changes.append(
+                        {
+                            "id": str(row["id"]),
+                            "field": field,
+                            "prior": show(before.get(field)),
+                            "current": show(after.get(field)),
+                        }
+                    )
+    removed = []
+    for item in record.get("removed") or []:
+        if isinstance(item, dict) and item.get("id"):
+            removed.append(
+                {"id": str(item["id"]), "serial": item.get("serial"), "keys": row_keys(item.get("serial"))}
+            )
+    scope = str(record.get("scope") or "")
+    no_motion = (not first) and (not changes) and (not removed) and all(str(row["id"]) in folded for row in devices)
+    status = record.get("status") if record.get("status") in ("ok", "degraded", "unknown") else "unknown"
+    coverage = record.get("coverage") if record.get("coverage") in ("complete", "partial") else "partial"
+    issue = devices[0].get("issue")
     rel = (meta or {}).get("evidence_ref")
     path = None
-    ident = None
     if no_motion:
         delta = "unchanged"
-        collected = checked_at(now) if coverage == "complete" else (meta or {}).get("last_collected_at")
         base_ref = (meta or {}).get("baseline_ref")
         last_visit = (meta or {}).get("last_visit_id")
+        collected = (meta or {}).get("last_collected_at")
     else:
         delta = "first" if first else "changed"
         ident, path = stamp_path(ws, now)
         if ident is None:
             return 1
         rel = f"investigations/{ident}.json"
-        if first:
-            kept = [emit(device, "Baseline.")]
-            notes = "Baseline."
-            unchanged = 0
-            removed = []
-            prior_watch = None
-            base_ref = None
-        else:
-            kept = [] if device.get("issue") == "unknown" and not prior_row else [emit(device, "Changed.")]
-            kept = [row for row in kept if row]
-            notes = "Changed."
-            unchanged = 0 if changes or not prior_row else 1
-            removed = []
-            for gone_id in removed_ids:
-                old = folded.get(gone_id) or {}
-                removed.append({"id": gone_id, "serial": old.get("serial"), "keys": row_keys(old.get("serial"))})
-            prior_watch = prior.get("watch_id") if prior else None
-            base_ref = baseline_ref_for(meta, prior)
-        if not kept and not removed:
-            kept = [emit(device, "Baseline." if first else "Changed.")]
+        base_ref = None if first else ((prior or {}).get("baseline_ref") or (meta or {}).get("baseline_ref"))
         stamp = {
-            "keys": sorted({key for row in kept for key in row["keys"]} | {key for item in removed for key in item["keys"]}),
+            "keys": sorted({key for row in devices for key in row["keys"]} | {key for item in removed for key in item["keys"]}),
             "schema": "investigations/v1",
             "source": "investigations",
             "watch_id": ident,
             "checked_at": checked_at(now),
             "ok": status == "ok",
             "status": status,
-            "headline": headline(device, scope),
-            "coverage": "partial" if coverage == "unavailable" else coverage,
+            "headline": str(record.get("headline") or "")[:400],
+            "coverage": coverage,
             "baseline_ref": base_ref,
-            "vs_prior": {"prior_watch_id": prior_watch, "delta": delta, "changed": changes[:40]},
-            "devices": kept,
-            "unchanged": unchanged,
+            "vs_prior": {
+                "prior_watch_id": None if first or not prior else prior.get("watch_id"),
+                "delta": delta,
+                "changed": changes[:40],
+            },
+            "devices": devices,
+            "unchanged": 0 if first else len(current_ids & set(folded)),
             "removed": removed,
-            "notes": notes,
-            "scope": scope,
+            "notes": note,
+            "scope": scope or devices[0]["id"],
         }
         if first:
             base_ref = rel
-        collected = checked_at(now) if coverage == "complete" else (meta or {}).get("last_collected_at")
+        collected = checked_at(now)
         last_visit = ident
         try:
             visit_common.validate(stamp, STAMP_SCHEMA)
         except ValueError as exc:
             print(json.dumps({"error": str(exc)[:500]}), file=sys.stderr)
             return 1
-    subjective, objective, assessment, plan = soap_draft(scope, device, status, coverage, rel or META_REL, delta)
     try:
         body = metadata(
             now,
@@ -847,14 +331,11 @@ def cmd_collect(args):
             last_collected_at=collected,
             baseline_ref=base_ref if not (path is not None and first) else rel,
             status=status,
-            coverage=coverage,
+            coverage=coverage if not no_motion else (meta or {}).get("coverage") or coverage,
             delta=delta,
-            devices=0 if device.get("issue") == "unknown" else 1,
-            issue=device.get("issue"),
-            subjective=subjective,
-            objective=objective,
-            assessment=assessment,
-            plan=plan,
+            devices=len(devices),
+            issue=issue,
+            **soap,
         )
     except ValueError as exc:
         print(json.dumps({"error": str(exc)[:500]}), file=sys.stderr)
@@ -864,30 +345,384 @@ def cmd_collect(args):
             stamp["baseline_ref"] = None
         write_json(path, stamp)
         print(f"investigations wrote {rel}", file=sys.stderr)
-    save_meta(ws, body)
+    write_json(Path(ws) / META_REL, body)
     reply(
         {
             "plane": "investigations",
-            "status": status,
-            "coverage": coverage,
+            "status": body["status"],
+            "coverage": body["coverage"],
             "stamp": body["evidence_ref"],
             "metadata": META_REL,
             "delta": delta,
-            "devices": body["devices"],
-            "name": device.get("name"),
-            "serial": device.get("serial"),
-            "user": device.get("user"),
-            "lookup": device.get("lookup"),
-            "matches": device.get("matches"),
-            "issue": device.get("issue"),
-            "crash_count": device.get("crash_count"),
-            "top_process": device.get("top_process"),
-            "managed": device.get("managed"),
+            "devices": len(devices),
+            "name": devices[0].get("name"),
+            "serial": devices[0].get("serial"),
+            "user": devices[0].get("user"),
+            "lookup": devices[0].get("lookup"),
+            "matches": devices[0].get("matches"),
+            "issue": issue,
+            "crash_count": devices[0].get("crash_count"),
+            "top_process": devices[0].get("top_process"),
+            "managed": devices[0].get("managed"),
             "quiet": no_motion,
-            "plan": plan,
+            "plan": soap["plan"],
         }
     )
     return 0
+
+
+def call(tool, args, budget):
+    if budget.exhausted():
+        return None, "budget exhausted"
+    print(f"investigations call {tool}", file=sys.stderr)
+    return visit_common.tool_dict(visit_common.mcp_call(tool, args, retries=1))
+
+
+def section(raw, name):
+    value = raw.get(name) if isinstance(raw, dict) else None
+    return value if isinstance(value, dict) else {}
+
+
+def blank(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def first(*values):
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if value is not None and not isinstance(value, (dict, list, str)):
+            return value
+    return None
+
+
+def as_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        low = value.strip().lower()
+        if low in ("true", "yes"):
+            return True
+        if low in ("false", "no"):
+            return False
+    return None
+
+
+def cell(row, *names):
+    if not isinstance(row, dict):
+        return None
+    folded = {str(key).lower(): value for key, value in row.items()}
+    for name in names:
+        if name.lower() in folded:
+            return blank(folded[name.lower()])
+    for key, value in folded.items():
+        if any(name.lower() in key for name in names):
+            return blank(value)
+    return None
+
+
+def rows_from(payload):
+    if not isinstance(payload, dict):
+        return []
+    for key in ("devices", "results", "computers"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    device = payload.get("device")
+    if isinstance(device, dict):
+        return [device]
+    return []
+
+
+def nql_rows(payload):
+    if not isinstance(payload, dict):
+        return []
+    data = payload.get("data")
+    headers = payload.get("headers")
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        return data
+    if isinstance(data, list) and isinstance(headers, list):
+        return [
+            {str(headers[i]): item[i] if i < len(item) else None for i in range(len(headers))}
+            for item in data
+            if isinstance(item, list)
+        ]
+    return []
+
+
+def nql(query_id, parameters, budget):
+    payload, err = call("nexthink_nql_execute", {"query_id": query_id, "parameters": parameters}, budget)
+    if err:
+        return None, err
+    return nql_rows(payload), None
+
+
+def serial_of(raw):
+    return blank(first(section(raw, "hardware").get("serialNumber"), raw.get("serial"), section(raw, "general").get("serialNumber")))
+
+
+def id_of(raw):
+    return blank(first(raw.get("id"), section(raw, "general").get("id")))
+
+
+def normalize_jamf(raw):
+    general = section(raw, "general")
+    located = section(raw, "userAndLocation")
+    remote = section(general, "remoteManagement")
+    capable = general.get("mdmCapable")
+    if isinstance(capable, dict):
+        capable = capable.get("capable")
+    return {
+        "id": id_of(raw),
+        "name": blank(first(general.get("name"), raw.get("name"))) or "",
+        "serial": serial_of(raw),
+        "user": blank(first(located.get("username"), located.get("realname"), raw.get("username"))),
+        "last_contact": blank(first(general.get("lastContactTime"), raw.get("lastContactTime"))),
+        "managed": as_bool(first(remote.get("managed"), general.get("managed"), raw.get("managed"))),
+        "supervised": as_bool(first(general.get("supervised"), raw.get("supervised"))),
+        "user_approved_mdm": as_bool(first(general.get("userApprovedMdm"), raw.get("userApprovedMdm"))),
+        "mdm_capable": as_bool(capable if capable is not None else raw.get("mdmCapable")),
+    }
+
+
+def pick_live(rows):
+    checked = [row for row in rows if row.get("managed") is True and row.get("last_contact")]
+    if not checked:
+        checked = [row for row in rows if row.get("last_contact")]
+    if not checked:
+        return rows[0] if rows else None
+    checked.sort(key=lambda row: row.get("last_contact") or "")
+    return checked[-1]
+
+
+def find_jamf(serial, name, user, budget):
+    args = {"page": 0, "page_size": 100}
+    if serial:
+        args["serial"] = serial
+    elif name:
+        args["name"] = name
+    elif user:
+        args["email" if "@" in user else "username"] = user
+    payload, err = call("jamf_find_devices", args, budget)
+    if err:
+        return None, err
+    rows = [normalize_jamf(raw) for raw in rows_from(payload)]
+    rows = [row for row in rows if row.get("id")]
+    if serial:
+        rows = [row for row in rows if row.get("serial") == serial]
+    elif name:
+        exact = [row for row in rows if row.get("name") == name]
+        if exact:
+            rows = exact
+    elif user and "@" not in user:
+        exact = [row for row in rows if (row.get("user") or "").lower() == user.lower()]
+        if exact:
+            rows = exact
+    chosen = pick_live(rows)
+    if chosen is None:
+        return None, None
+    detail, detail_err = call("jamf_get_device", {"computer_id": str(chosen["id"]), "sections": SECTIONS}, budget)
+    if detail_err:
+        chosen["_partial"] = True
+        return chosen, None
+    detailed = rows_from(detail)
+    if not detailed:
+        chosen["_partial"] = True
+        return chosen, None
+    merged = normalize_jamf(detailed[0])
+    for key, value in chosen.items():
+        if merged.get(key) in (None, "") and value not in (None, ""):
+            merged[key] = value
+    return merged, None
+
+
+def pick_nexthink(rows, jamf_row):
+    usable = [row for row in rows if isinstance(row, dict)]
+    if jamf_row and jamf_row.get("name"):
+        exact = [row for row in usable if cell(row, "device.name") == jamf_row["name"]]
+        if exact:
+            usable = exact
+    if not usable:
+        return {}, 0
+    usable.sort(key=lambda row: cell(row, "device.last_seen") or "")
+    return usable[-1], len(rows)
+
+
+def lookup_by_name(device_name, budget):
+    rows, err = nql("#mcp_device_lookup", {"device_name": device_name, "user_name": "*"}, budget)
+    if err:
+        return None, 0, err
+    exact = [row for row in rows if cell(row, "device.name") == device_name]
+    chosen, count = pick_nexthink(exact or rows, None)
+    return chosen, count, None
+
+
+def lookup_by_user(user, jamf_row, budget):
+    people, err = nql("#mcp_user_lookup", {"user_name": user}, budget)
+    login = cell(people[0], "user.name") if people and not err else None
+    login = login or user
+    rows, derr = nql("#mcp_device_lookup", {"device_name": "*", "user_name": login}, budget)
+    if derr:
+        return None, 0, derr
+    if not rows and login != user:
+        rows, derr = nql("#mcp_device_lookup", {"device_name": "*", "user_name": user}, budget)
+        if derr:
+            return None, 0, derr
+    chosen, count = pick_nexthink(rows, jamf_row)
+    return chosen, count, None
+
+
+def signals_from(rows):
+    picked = []
+    seen = set()
+    for row in (rows or [])[:3]:
+        if not isinstance(row, dict):
+            continue
+        ranked = sorted(row.items(), key=lambda item: 0 if any(word in str(item[0]).lower() for word in INTEREST) else 1)
+        for key, value in ranked:
+            if not isinstance(value, (str, int, float, bool)) or value == "":
+                continue
+            name = str(key)[:80]
+            if name in seen:
+                continue
+            if not any(word in name.lower() for word in INTEREST) and len(picked) >= 4:
+                continue
+            seen.add(name)
+            picked.append({"name": name, "value": str(value)[:80]})
+            if len(picked) >= 12:
+                return picked
+    return picked
+
+
+def top_process(rows):
+    for row in rows or []:
+        value = cell(row, "process", "binary", "application")
+        if value and value not in ("*",):
+            return value[:80]
+    return None
+
+
+def classify(jamf_row, nexthink_row, health_rows, crash_rows, health_err, lookup_err):
+    in_jamf = bool(jamf_row and jamf_row.get("id"))
+    in_nexthink = bool(nexthink_row)
+    if not in_jamf and not in_nexthink:
+        return "unknown"
+    if not in_jamf:
+        return "not_in_jamf"
+    if lookup_err or not in_nexthink:
+        return "not_in_nexthink"
+    if crash_rows:
+        return "application_crashes"
+    if health_err:
+        return "experience_unread"
+    if health_rows:
+        return "experience_recorded"
+    return "no_signal"
+
+
+def yn(value):
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    return "unset"
+
+
+def cmd_collect(args):
+    ws = resolve_workspace(args.workspace)
+    if ws is None:
+        return 1
+    serial = strip_arg(args.serial)
+    name = strip_arg(args.name)
+    user = strip_arg(args.user)
+    if serial and not serial.isalnum():
+        print('{"error": "serial must be letters and digits"}', file=sys.stderr)
+        return 1
+    if name and not NAME_RE.fullmatch(name):
+        print('{"error": "name must be a hostname"}', file=sys.stderr)
+        return 1
+    if user and not USER_RE.fullmatch(user):
+        print('{"error": "user must be a username or email"}', file=sys.stderr)
+        return 1
+    if not serial and not name and not user:
+        print('{"error": "collect needs one chosen endpoint: --serial, --name, or --user"}', file=sys.stderr)
+        return 1
+    lookup = "serial" if serial else "name" if name else "user"
+    budget = visit_common.Budget(240)
+    jamf_row, jamf_err = find_jamf(serial or None, name or None, user or None, budget)
+    if lookup == "user":
+        nexthink_row, matches, lookup_err = lookup_by_user(user, jamf_row, budget)
+    else:
+        device_name = (jamf_row or {}).get("name") or name
+        nexthink_row, matches, lookup_err = lookup_by_name(device_name, budget) if device_name else ({}, 0, None)
+    device_name = cell(nexthink_row or {}, "device.name") or (jamf_row or {}).get("name") or name or ""
+    health_rows, crash_rows, process_rows = [], [], []
+    health_err = lookup_err
+    if device_name and not lookup_err:
+        health_rows, health_err = nql("#mcp_device_health", {"device_name": device_name}, budget)
+        crash_rows, crash_err = nql("#mcp_app_crashes", {"device_name": device_name, "binary_name": "*"}, budget)
+        process_rows, process_err = nql("#mcp_device_top_processes", {"device_name": device_name}, budget)
+        if crash_err:
+            crash_rows = None
+            health_err = health_err or crash_err
+        if process_err:
+            process_rows = []
+            health_err = health_err or process_err
+        if health_err and health_rows is None:
+            health_rows = []
+    if jamf_err and not jamf_row and lookup_err:
+        print(json.dumps({"error": (jamf_err or lookup_err)[:200]}), file=sys.stderr)
+        return 1
+    jamf_row = jamf_row or {}
+    nexthink_row = nexthink_row or {}
+    issue = classify(jamf_row, nexthink_row, health_rows or [], crash_rows, health_err, lookup_err)
+    partial = bool(jamf_row.get("_partial") or health_err or lookup_err)
+    status = "unknown" if issue == "unknown" else "degraded" if issue in ("application_crashes", "experience_unread", "not_in_jamf", "not_in_nexthink") else "ok"
+    coverage = "partial" if partial else "complete"
+    serial_value = jamf_row.get("serial")
+    hostname = jamf_row.get("name") or cell(nexthink_row, "device.name") or name or ""
+    who = jamf_row.get("user") or cell(nexthink_row, "device.login.last_login_user_name")
+    device = {
+        "id": serial_value or hostname or user,
+        "name": hostname,
+        "serial": serial_value,
+        "user": who,
+        "jamf_id": None if not jamf_row.get("id") else str(jamf_row["id"]),
+        "managed": jamf_row.get("managed"),
+        "supervised": jamf_row.get("supervised"),
+        "user_approved_mdm": jamf_row.get("user_approved_mdm"),
+        "mdm_capable": jamf_row.get("mdm_capable"),
+        "collector_uid": cell(nexthink_row, "device.collector.uid"),
+        "platform": cell(nexthink_row, "device.operating_system.platform"),
+        "last_seen": cell(nexthink_row, "device.last_seen") or jamf_row.get("last_contact"),
+        "lookup": lookup,
+        "matches": matches,
+        "issue": issue,
+        "crash_count": None if crash_rows is None else len(crash_rows),
+        "top_process": top_process(process_rows),
+        "signals": signals_from(health_rows or []),
+    }
+    scope = f"{lookup}:{serial or name or user}"
+    crashes = "unread" if device["crash_count"] is None else str(device["crash_count"])
+    record = {
+        "status": status,
+        "headline": f"{device['serial'] or 'no serial'} {device['name'] or 'unnamed'} issue {issue}."[:400],
+        "coverage": coverage,
+        "scope": scope,
+        "devices": [device],
+    }
+    soap = {
+        "subjective": sentence(f"Investigation of {lookup} {serial or name or user}."),
+        "objective": sentence(
+            f"{device['name'] or 'unnamed'} user {who or 'unassigned'}. Issue {issue}. {crashes} crash rows. Managed {yn(device['managed'])}."
+        ),
+        "assessment": sentence(f"Issue {issue} on {device['name'] or 'unnamed'}."),
+        "plan": sentence("Say what this means. This visit does not open a ticket."),
+    }
+    return save_record(ws, record, soap)
 
 
 def cmd_annotate(args):
@@ -902,35 +737,38 @@ def cmd_annotate(args):
     if stamp != meta.get("evidence_ref"):
         print('{"error": "stamp does not match evidence_ref"}', file=sys.stderr)
         return 1
-    updates = {}
-    for field in ("subjective", "objective", "assessment", "plan"):
-        text = strip_arg(getattr(args, field))
-        if not text or len(text) > 400 or "{" in text:
-            print(json.dumps({"error": f"{field} must be one sentence under 400 characters with no JSON"}), file=sys.stderr)
-            return 1
-        updates[field] = text
-    meta.update(updates)
+    soap = soap_args(args)
+    if soap is None:
+        return 1
+    meta.update(soap)
     meta["updated_at"] = checked_at(datetime.now(timezone.utc))
     try:
         visit_common.validate(meta, META_SCHEMA)
     except ValueError as exc:
         print(json.dumps({"error": str(exc)[:500]}), file=sys.stderr)
         return 1
-    save_meta(ws, meta)
+    write_json(Path(ws) / META_REL, meta)
     reply({"plane": "investigations", "annotated": True, "stamp": stamp, "metadata": META_REL})
     return 0
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Investigation visit")
+    parser = argparse.ArgumentParser(description="Investigations visit")
     sub = parser.add_subparsers(dest="command", required=True)
     collect = sub.add_parser("collect")
     collect.add_argument("--workspace", required=True)
     collect.add_argument("--serial", default="")
     collect.add_argument("--name", default="")
     collect.add_argument("--user", default="")
-    collect.add_argument("--query", default="")
     collect.set_defaults(func=cmd_collect)
+    commit = sub.add_parser("commit")
+    commit.add_argument("--workspace", required=True)
+    commit.add_argument("--record", required=True)
+    commit.add_argument("--subjective", required=True)
+    commit.add_argument("--objective", required=True)
+    commit.add_argument("--assessment", required=True)
+    commit.add_argument("--plan", required=True)
+    commit.set_defaults(func=cmd_commit)
     annotate = sub.add_parser("annotate")
     annotate.add_argument("--workspace", required=True)
     annotate.add_argument("--stamp", required=True)
