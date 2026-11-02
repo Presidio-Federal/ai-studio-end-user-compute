@@ -1,0 +1,19 @@
+{
+  "keys": [],
+  "schema": "operations-metadata/v1",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "source_agent": "operations",
+  "evidence_ref": "operations/2026-01-01T00-00-00Z.json",
+  "last_visit_id": "2026-01-01T00-00-00Z",
+  "last_collected_at": "2026-01-01T00:00:00Z",
+  "baseline_ref": "operations/2026-01-01T00-00-00Z.json",
+  "status": "degraded",
+  "coverage": "complete",
+  "delta": "first",
+  "devices": 1,
+  "issue": "disk",
+  "subjective": "In-life check for failing devices.",
+  "objective": "1 failing. SERIAL123456 mac-example issue disk. Proof operations/2026-01-01T00-00-00Z.json.",
+  "assessment": "mac-example is in the fleet and failing on disk. Investigation can take the serial next.",
+  "plan": "Investigation of SERIAL123456. This visit does not treat."
+}

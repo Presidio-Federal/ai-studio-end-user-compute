@@ -1,0 +1,19 @@
+{
+  "keys": [],
+  "schema": "onboarding-metadata/v1",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "source_agent": "onboarding",
+  "evidence_ref": "onboarding/2026-01-01T00-00-00Z.json",
+  "last_visit_id": "2026-01-01T00-00-00Z",
+  "last_collected_at": "2026-01-01T00:00:00Z",
+  "baseline_ref": "onboarding/2026-01-01T00-00-00Z.json",
+  "status": "ok",
+  "coverage": "complete",
+  "delta": "first",
+  "devices": 1,
+  "stage": "managed",
+  "subjective": "Onboarding check for serial SERIAL123456.",
+  "objective": "SERIAL123456 mac-example stage managed. Proof onboarding/2026-01-01T00-00-00Z.json.",
+  "assessment": "The chassis is in management. Operations can take it next.",
+  "plan": "Operations after enrollment. This visit does not assign a PreStage."
+}
