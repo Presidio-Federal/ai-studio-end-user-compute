@@ -1,6 +1,6 @@
 # Workspace contract
 
-Catalog: **`workspace-handoff`**. This skill owns the schema and the example. `scripts/visit_onboarding.py collect` writes the stamp. It uses attached tools. It does not assign a PreStage.
+Catalog: **`workspace-handoff`**. This skill owns the schema and the example. `scripts/visit_onboarding.py collect` writes the stamp. Assign changes Jamf only when authorized and does not write a stamp.
 
 | Path | When |
 |------|------|

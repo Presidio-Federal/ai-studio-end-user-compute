@@ -2,7 +2,7 @@
 
 Read `onboarding/metadata.json` first. `evidence_ref` is the last stamp. Read it. `File not found` is the first run. Do not search.
 
-This visit records enrollment. It does not assign a PreStage, investigate health, or retire.
+This visit records enrollment. Collect does not assign a PreStage, investigate health, or retire. Assign runs only when the person authorizes it.
 
 ## Run the script
 
@@ -20,3 +20,15 @@ python3 <copied script path> annotate --workspace <copied file_explorer director
 ```
 
 If stderr says `hai_mcp unavailable`, stop. Do not collect by hand.
+
+## Assign
+
+Only when the person names a serial and authorizes a PreStage assignment. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths.
+
+```text
+python3 <copied script path> assign --workspace <copied file_explorer directory> --serial "<serial>"
+python3 <copied script path> assign --workspace <copied file_explorer directory> --serial "<serial>" --prestage-name "<prestage>"
+python3 <copied script path> assign --workspace <copied file_explorer directory> --serial "<serial>" --action unassign
+```
+
+The script does not write a stamp. Collect again to record the stage.

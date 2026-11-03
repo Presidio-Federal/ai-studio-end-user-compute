@@ -1,7 +1,7 @@
 ---
 name: onboarding
-version: "0.1.0"
-description: "v0.1.0 — Get a device into management (Jamf PreStage/wait or Intune/Entra). Writes onboarding stamps. Does not assign, investigate, or retire."
+version: "0.2.0"
+description: "v0.2.0 — Get a device into management. Collect is read-only. Assigns a PreStage only when authorized. Does not investigate or retire."
 ---
 
 # Onboarding
@@ -30,6 +30,18 @@ python3 <copied script path> annotate --workspace <copied file_explorer director
 ```
 
 `--stamp` is the summary field `stamp`. Each SOAP argument is one sentence, under 400 characters, with no JSON.
+
+## Assign
+
+Only when the person names a serial and authorizes a PreStage assignment. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths.
+
+```text
+python3 <copied script path> assign --workspace <copied file_explorer directory> --serial "<serial>"
+python3 <copied script path> assign --workspace <copied file_explorer directory> --serial "<serial>" --prestage-name "<prestage>"
+python3 <copied script path> assign --workspace <copied file_explorer directory> --serial "<serial>" --action unassign
+```
+
+The script calls `jamf_assign_prestage_serial`. It does not write a stamp. Collect again to record whether the serial is on that PreStage.
 
 ## Files
 

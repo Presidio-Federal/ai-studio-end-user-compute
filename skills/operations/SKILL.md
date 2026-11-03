@@ -1,14 +1,14 @@
 ---
 name: operations
-version: "0.1.0"
-description: "v0.1.0 — Record in-life devices that are failing experience or compliance. Writes operations stamps. Does not enroll, order, or retire."
+version: "0.2.0"
+description: "v0.2.0 — Record in-life devices that are failing. Collect is read-only. Treats a Mac via a static group only when authorized."
 ---
 
 # Operations
 
 Read `operations/metadata.json` first. `evidence_ref` is the last stamp. Read it. `File not found` is the first run. Do not search.
 
-You own devices already in the fleet that are failing. A line that asks who is sick, DEX, compliance, or in-life health is authorization. Do not confirm. You do not enroll a device. You do not investigate one chosen endpoint (that is Investigation). You do not open a ticket, send MDM, run a remote action, start a workflow, or send a campaign.
+You own devices already in the fleet that are failing. A line that asks who is sick, DEX, compliance, or in-life health is authorization to collect. Do not confirm. You do not enroll a device. You do not investigate one chosen endpoint (that is Investigation). You do not open a ticket, run a remote action, start a workflow, or send a campaign. You do not change a computer group or send MDM unless the person authorizes that treat.
 
 ## Collect
 
@@ -31,6 +31,17 @@ python3 <copied script path> annotate --workspace <copied file_explorer director
 ```
 
 `--stamp` is the summary field `stamp`. Each SOAP argument is one sentence, under 400 characters, with no JSON.
+
+## Treat
+
+Only when the person names a serial and authorizes a fix. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths. `--group` is the exact static group name.
+
+```text
+python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "<serial>" --group "MCP-Remediate-Disk"
+python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "<serial>" --group "MCP-Remediate-Disk" --action remove
+```
+
+The script adds or removes that computer on the group, then `BLANK_PUSH` on add. It does not write a stamp. Collect again after check-in to record whether the issue moved.
 
 ## Files
 

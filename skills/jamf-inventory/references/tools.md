@@ -7,7 +7,7 @@ The visit script calls these. The prompt does not.
 | `jamf_find_devices` | Every collect. With `--serial`, it passes `serial`. It also passes `filter` `hardware.serialNumber=="<serial>"` and merges the two results by Jamf id. Without `--serial`, it pages `page_size` 100. |
 | `jamf_get_device` | Once per computer id. Sections: GENERAL, HARDWARE, USER_AND_LOCATION. |
 
-The script does not call `jamf_get_device_health`. FileVault, disk, and OS health are outside this visit.
+The script does not call `jamf_get_device_health`, `jamf_list_computer_groups`, `jamf_set_computer_group_membership`, or `jamf_api_get`. FileVault, disk, OS health, and group membership are outside this visit.
 
 `jamf_wait_for_device` answers only whether a serial has appeared. It is not this management check. The script does not call it.
 

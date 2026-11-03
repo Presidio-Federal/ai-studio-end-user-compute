@@ -679,6 +679,69 @@ def cmd_collect(args):
     return save_record(ws, record, soap, fleet=fleet)
 
 
+def cmd_treat(args):
+    ws = resolve_workspace(args.workspace)
+    if ws is None:
+        return 1
+    serial = strip_arg(args.serial)
+    group = strip_arg(args.group)
+    action = strip_arg(args.action) or "add"
+    if not serial or not serial.isalnum():
+        print('{"error": "treat needs a chassis serial"}', file=sys.stderr)
+        return 1
+    if not group or len(group) > 128:
+        print('{"error": "treat needs a static group name"}', file=sys.stderr)
+        return 1
+    if action not in ("add", "remove"):
+        print('{"error": "action must be add or remove"}', file=sys.stderr)
+        return 1
+    budget = visit_common.Budget(240)
+    listed, list_err = optional("jamf_list_computer_groups", {"name": group, "static_only": True}, budget)
+    if list_err == "unattached":
+        print('{"error": "jamf_list_computer_groups is not attached"}', file=sys.stderr)
+        return 1
+    if list_err:
+        print(json.dumps({"error": list_err[:200]}), file=sys.stderr)
+        return 1
+    group_id = None
+    exact = group
+    for raw in rows_from(listed or {}):
+        name = blank(raw.get("name"))
+        smart = raw.get("is_smart")
+        if name and name.lower() == group.lower() and smart is not True:
+            group_id = blank(raw.get("id"))
+            exact = name
+            break
+    payload = {"confirm": True, "serial": serial, "action": action}
+    if group_id:
+        payload["group_id"] = group_id
+    else:
+        payload["group_name"] = exact
+    body, err = call("jamf_set_computer_group_membership", payload, budget)
+    if err:
+        print(json.dumps({"error": err[:200]}), file=sys.stderr)
+        return 1
+    push_err = None
+    push_body = None
+    if action == "add":
+        push_body, push_err = call("jamf_send_mdm_command", {"command": "BLANK_PUSH", "serial": serial}, budget)
+    reply(
+        {
+            "plane": "operations",
+            "treated": True,
+            "serial": serial,
+            "group": exact,
+            "group_id": group_id,
+            "action": action,
+            "push": None if action != "add" else ("ok" if not push_err else push_err[:120]),
+            "stamp": None,
+        }
+    )
+    if push_err:
+        print(json.dumps({"warning": f"group updated, blank push failed: {push_err[:160]}"}), file=sys.stderr)
+    return 0
+
+
 def cmd_annotate(args):
     ws = resolve_workspace(args.workspace)
     if ws is None:
@@ -714,6 +777,12 @@ def main():
     collect.add_argument("--serial", default="")
     collect.add_argument("--name", default="")
     collect.set_defaults(func=cmd_collect)
+    treat = sub.add_parser("treat")
+    treat.add_argument("--workspace", required=True)
+    treat.add_argument("--serial", required=True)
+    treat.add_argument("--group", required=True)
+    treat.add_argument("--action", default="add")
+    treat.set_defaults(func=cmd_treat)
     annotate = sub.add_parser("annotate")
     annotate.add_argument("--workspace", required=True)
     annotate.add_argument("--stamp", required=True)

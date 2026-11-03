@@ -1,6 +1,6 @@
 # Workspace contract
 
-Catalog: **`workspace-handoff`**. This skill owns the schema and the example. `scripts/visit_operations.py collect` writes the stamp. It uses attached tools. It does not enroll, order, or retire.
+Catalog: **`workspace-handoff`**. This skill owns the schema and the example. `scripts/visit_operations.py collect` writes the stamp. Treat changes Jamf only when authorized and does not write a stamp.
 
 | Path | When |
 |------|------|

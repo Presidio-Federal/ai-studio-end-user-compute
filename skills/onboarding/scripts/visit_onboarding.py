@@ -638,6 +638,44 @@ def cmd_collect(args):
     return save_record(ws, record, soap, fleet=fleet)
 
 
+def cmd_assign(args):
+    ws = resolve_workspace(args.workspace)
+    if ws is None:
+        return 1
+    serial = strip_arg(args.serial)
+    prestage_name = strip_arg(args.prestage_name)
+    prestage_id = strip_arg(args.prestage_id)
+    action = strip_arg(args.action) or "assign"
+    if not serial or not serial.isalnum():
+        print('{"error": "assign needs a chassis serial"}', file=sys.stderr)
+        return 1
+    if action not in ("assign", "unassign"):
+        print('{"error": "action must be assign or unassign"}', file=sys.stderr)
+        return 1
+    budget = visit_common.Budget(240)
+    payload = {"serial_number": serial, "action": action}
+    if prestage_id:
+        payload["prestage_id"] = prestage_id
+    elif prestage_name:
+        payload["prestage_name"] = prestage_name
+    body, err = call("jamf_assign_prestage_serial", payload, budget)
+    if err:
+        print(json.dumps({"error": err[:200]}), file=sys.stderr)
+        return 1
+    reply(
+        {
+            "plane": "onboarding",
+            "assigned": action == "assign",
+            "serial": serial,
+            "prestage_name": prestage_name or None,
+            "prestage_id": prestage_id or None,
+            "action": action,
+            "stamp": None,
+        }
+    )
+    return 0
+
+
 def cmd_annotate(args):
     ws = resolve_workspace(args.workspace)
     if ws is None:
@@ -672,6 +710,13 @@ def main():
     collect.add_argument("--workspace", required=True)
     collect.add_argument("--serial", default="")
     collect.set_defaults(func=cmd_collect)
+    assign = sub.add_parser("assign")
+    assign.add_argument("--workspace", required=True)
+    assign.add_argument("--serial", required=True)
+    assign.add_argument("--prestage-name", default="")
+    assign.add_argument("--prestage-id", default="")
+    assign.add_argument("--action", default="assign")
+    assign.set_defaults(func=cmd_assign)
     annotate = sub.add_parser("annotate")
     annotate.add_argument("--workspace", required=True)
     annotate.add_argument("--stamp", required=True)

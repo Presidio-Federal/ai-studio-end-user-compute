@@ -20,7 +20,19 @@ Do not invent a `query_id`. Parameter keys have no `$`.
 | `jamf_get_device_health` | The matching computer. |
 | `intune_list_intune_devices` | `name` is the hostname. |
 
-Do not call `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, `nexthink_enrich`, `jamf_send_mdm_command`, `jamf_list_prestages`, `jamf_assign_prestage_serial`, or any `snow_` tool.
+Do not call `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, `nexthink_enrich`, `jamf_send_mdm_command`, `jamf_list_prestages`, `jamf_assign_prestage_serial`, `jamf_list_computer_groups`, `jamf_set_computer_group_membership`, `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, `jamf_api_delete`, or any `snow_` tool on this collect.
+
+## Treat (only when authorized)
+
+The person must name a serial and authorize the fix. Collect does not treat.
+
+| Tool | Call |
+|------|------|
+| `jamf_list_computer_groups` | `name` is the group substring, `static_only` true. Resolve the exact static group before the write. |
+| `jamf_set_computer_group_membership` | `confirm` true. `group_id` or exact `group_name`. `serial` or `computer_id`. `action` `add` or `remove`. |
+| `jamf_send_mdm_command` | After add: `command` `BLANK_PUSH`, same serial. |
+
+Disk remediation on this estate uses the static group `MCP-Remediate-Disk`. Do not invent a group. Do not replace the group's membership list. Do not call `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, or `jamf_api_delete`. Those need a path this skill does not supply.
 
 ## What the row holds
 

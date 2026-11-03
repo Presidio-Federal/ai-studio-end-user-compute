@@ -2,7 +2,7 @@
 
 Read `operations/metadata.json` first. `evidence_ref` is the last stamp. Read it. `File not found` is the first run. Do not search.
 
-This visit records in-life devices that are failing. It does not enroll, investigate one chosen endpoint, open a ticket, or treat.
+This visit records in-life devices that are failing. Collect does not enroll, investigate one chosen endpoint, open a ticket, or treat. Treat runs only when the person authorizes it.
 
 ## Run the script
 
@@ -21,3 +21,14 @@ python3 <copied script path> annotate --workspace <copied file_explorer director
 ```
 
 If stderr says `hai_mcp unavailable`, stop. Do not collect by hand.
+
+## Treat
+
+Only when the person names a serial and authorizes a fix. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths.
+
+```text
+python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "<serial>" --group "MCP-Remediate-Disk"
+python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "<serial>" --group "MCP-Remediate-Disk" --action remove
+```
+
+`--group` is the exact static group name. The script does not write a stamp. Collect again after check-in.

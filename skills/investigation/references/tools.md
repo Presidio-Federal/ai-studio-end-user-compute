@@ -25,4 +25,4 @@ The prompt does not call these on the collect turn. `scripts/visit_investigation
 
 `#mcp_device_health` and `#mcp_device_top_processes` take one real device name. Do not pass `"*"` for those.
 
-Do not call `jamf_get_device_health`, `jamf_send_mdm_command`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool.
+Do not call `jamf_get_device_health`, `jamf_send_mdm_command`, `jamf_set_computer_group_membership`, `jamf_api_post`, `jamf_api_put`, `jamf_api_delete`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool.

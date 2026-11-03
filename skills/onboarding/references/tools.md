@@ -22,9 +22,17 @@ The visit script calls the tools that are attached. The prompt does not. An unat
 | `intune_list_intune_devices` | `name` is that hostname. |
 | `intune_get_device_management_status` | When an Entra object id or `deviceId` is known. |
 
-Do not call `jamf_assign_prestage_serial`, `jamf_send_mdm_command`, `jamf_manage_accounts`, `intune_create_deployment_group`, `intune_add_deployment_group_members`, `jamf_get_device_health`, `nexthink_nql_execute`, or any `snow_` tool on this collect.
+Do not call `jamf_assign_prestage_serial`, `jamf_send_mdm_command`, `jamf_manage_accounts`, `jamf_list_computer_groups`, `jamf_set_computer_group_membership`, `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, `jamf_api_delete`, `intune_create_deployment_group`, `intune_add_deployment_group_members`, `jamf_get_device_health`, `nexthink_nql_execute`, or any `snow_` tool on this collect.
 
-Assigning a PreStage or a deployment-group member is a later authorized action, not this visit.
+## Assign (only when authorized)
+
+The person must name a serial and authorize the PreStage write. Collect does not assign.
+
+| Tool | Call |
+|------|------|
+| `jamf_assign_prestage_serial` | `serial_number`, optional `prestage_name` or `prestage_id`. `action` `assign` or `unassign`. Omit the prestage only when one exists. |
+
+Do not call `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, or `jamf_api_delete`. Those need a path this skill does not supply.
 
 ## Stage
 
