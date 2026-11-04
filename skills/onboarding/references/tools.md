@@ -8,8 +8,7 @@ The visit script calls the tools that are attached. The prompt does not. An unat
 |------|------|
 | `jamf_list_prestages` | `include_scope` true, `page` 0, `page_size` 100. |
 | `jamf_find_devices` | `page` 0, `page_size` 100. No name filter. |
-| `intune_list_entra_devices` | `top` 25. No name filter. |
-| `intune_list_intune_devices` | `top` 25. No name filter. |
+| `intune_list_intune_devices` | `top` 25. No name filter. Intune managed records only. Do not list the Entra directory on a fleet collect. |
 
 ## Named serial
 

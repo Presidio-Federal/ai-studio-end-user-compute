@@ -20,9 +20,10 @@ The prompt does not call these on the collect turn. `scripts/visit_investigation
 | Tool | When |
 |------|------|
 | `jamf_find_devices` | By the chosen serial, hostname, or username. |
-| `jamf_get_device` | The matching computer. Sections GENERAL, HARDWARE, USER_AND_LOCATION. |
-| `nexthink_nql_execute` | `#mcp_device_lookup` for a hostname. `#mcp_user_lookup` and `#mcp_device_lookup` for a username. Then `#mcp_device_health`, `#mcp_app_crashes` with `binary_name` `"*"`, and `#mcp_device_top_processes` for the device name found. |
+| `jamf_get_device` | The matching computer. Sections GENERAL, HARDWARE, OPERATING_SYSTEM, USER_AND_LOCATION. Chassis serial is `hardware.serialNumber`, not `general.serialNumber`. |
+| `jamf_get_device_health` | Optional. Free disk, OS, findings for the ticket pack. Unattached is a gap. |
+| `nexthink_nql_execute` | `#mcp_device_lookup` for a hostname. `#mcp_user_lookup` and `#mcp_device_lookup` for a username. Then `#mcp_device_health`, `#mcp_app_crashes` with `binary_name` `"*"`, and `#mcp_device_top_processes` for the device name found. Serial is `device.hardware.bios_serial_number`. The visit uses Jamf hardware serial when both exist and match, Jamf when they differ, Nexthink when Jamf has none. |
 
 `#mcp_device_health` and `#mcp_device_top_processes` take one real device name. Do not pass `"*"` for those.
 
-Do not call `jamf_get_device_health`, `jamf_send_mdm_command`, `jamf_set_computer_group_membership`, `jamf_api_post`, `jamf_api_put`, `jamf_api_delete`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool.
+Do not call `jamf_send_mdm_command`, `jamf_set_computer_group_membership`, `jamf_api_post`, `jamf_api_put`, `jamf_api_delete`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool. `notify` reads `tickets/metadata.json`. It does not call MCP.

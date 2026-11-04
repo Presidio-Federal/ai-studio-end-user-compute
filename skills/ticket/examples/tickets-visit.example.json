@@ -1,0 +1,39 @@
+{
+  "keys": ["device:SERIAL123456"],
+  "schema": "tickets/v1",
+  "source": "tickets",
+  "watch_id": "2026-01-01T00-00-00Z",
+  "checked_at": "2026-01-01T00:00:00Z",
+  "ok": true,
+  "status": "ok",
+  "headline": "INC0010001 mac-example issue application_crashes.",
+  "coverage": "complete",
+  "baseline_ref": null,
+  "vs_prior": {
+    "prior_watch_id": null,
+    "delta": "first",
+    "changed": []
+  },
+  "devices": [
+    {
+      "keys": ["device:SERIAL123456"],
+      "id": "SERIAL123456",
+      "name": "mac-example",
+      "serial": "SERIAL123456",
+      "user": "user.name",
+      "number": "INC0010001",
+      "sys_id": "incident-sys-id-example",
+      "state": "1",
+      "short_description": "application_crashes on mac-example",
+      "source_ref": "investigations/2026-01-01T00-00-00Z.json",
+      "asset_tag": "EUC-ASSET-00001",
+      "cmdb_ci": "ci-sys-id-example",
+      "created": true,
+      "note": "Baseline."
+    }
+  ],
+  "unchanged": 0,
+  "removed": [],
+  "notes": "Baseline.",
+  "scope": "SERIAL123456"
+}

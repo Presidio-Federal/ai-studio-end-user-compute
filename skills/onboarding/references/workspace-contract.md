@@ -7,7 +7,7 @@ Catalog: **`workspace-handoff`**. This skill owns the schema and the example. `s
 | `onboarding/<YYYY-MM-DDTHH-MM-SSZ>.json` | First run, and any later run whose record changed. Never overwritten. Never deleted. A quiet run does not add one. |
 | `onboarding/metadata.json` | Every run. SOAP only, plus `evidence_ref`. The device rows are not here. |
 
-`read_file` filePath is the catalog path (`onboarding/metadata.json`). Do not prefix `file_explorer/`. `File not found` means that file has not been written. Do not search for it.
+`read_file` filePath is the catalog path (`onboarding/metadata.json`). Do not prefix `file_explorer/`. Do not call `get_folder_structure`. Do not pass `Internal directory` to built-in file tools. `File not found` means that file has not been written. Do not search for it.
 
 The next nurse reads this SOAP note. Operations and Investigation start after `stage` is `enrolled` or `managed`.
 

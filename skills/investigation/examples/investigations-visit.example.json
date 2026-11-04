@@ -34,6 +34,13 @@
       "issue": "application_crashes",
       "crash_count": 2,
       "top_process": "example-process",
+      "model": "Mac mini",
+      "os": "macOS 15.0",
+      "email": "user.name@example.com",
+      "free_disk": "42 GB",
+      "dex_score": "88",
+      "last_check_in": "2026-01-01T00:00:00Z",
+      "recommended_treat": "none",
       "signals": [
         { "name": "device.boot.days_since_last_full_boot", "value": "3" }
       ],

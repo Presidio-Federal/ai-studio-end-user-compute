@@ -29,7 +29,7 @@ Paths and catalog: **`workspace-handoff`**. When and how: `references/workspace-
 | `jamf/<stamp>.json` | observation | First visit, and later visits that changed. Written first. Never overwrite. |
 | `jamf/metadata.json` | metadata | Every visit, written second. SOAP and `evidence_ref`. No computer rows. |
 
-Use exactly: `references/watch.md`, `references/tools.md`, `references/workspace-contract.md`, `schemas/jamf-inventory-visit.schema.json`, `schemas/jamf-metadata.schema.json`, `examples/jamf-inventory-visit.example.json`, `examples/jamf-metadata.example.json`. Do not search the workspace for them.
+Use exactly: `references/watch.md`, `references/tools.md`, `references/workspace-contract.md`, `schemas/jamf-inventory-visit.schema.json`, `schemas/jamf-metadata.schema.json`, `examples/jamf-inventory-visit.example.json`, `examples/jamf-metadata.example.json`. Do not search the workspace for them. Do not call `get_folder_structure`. Do not pass `Internal directory` to built-in file tools.
 
 **Inventory visit — first tool:** one `execute_command`, `execution_type: "mcp_orchestration"`, the collect command in `references/watch.md`. Do not set `timeout`. The call is the command and `execution_type` only. Then one `annotate` command under `execution_type: "standard"` when the summary `stamp` is a path. Those sentences are the evaluation. They name the proof path and the delta. They do not list the computers. Reply from the summary line. If stderr says `hai_mcp unavailable`, stop.
 

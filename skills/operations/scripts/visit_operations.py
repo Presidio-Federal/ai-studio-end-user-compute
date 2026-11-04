@@ -336,7 +336,7 @@ def call(tool, args, budget):
 
 def optional(tool, args, budget):
     body, err = call(tool, args, budget)
-    if err and "not found" in err.lower():
+    if err and visit_common.tool_missing(err):
         return None, "unattached"
     return body, err
 

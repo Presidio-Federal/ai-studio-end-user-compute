@@ -12,8 +12,9 @@
   "delta": "first",
   "devices": 1,
   "issue": "application_crashes",
+  "treat": "none",
   "subjective": "Investigation of serial SERIAL123456.",
-  "objective": "mac-example user user.name. Issue application_crashes. 2 crash rows. Proof investigations/2026-01-01T00-00-00Z.json.",
-  "assessment": "The end user on mac-example is hitting application crashes. The Mac is managed.",
-  "plan": "A later visit opens the ticket from this stamp. This visit does not."
+  "objective": "mac-example serial SERIAL123456 user user.name. Issue application_crashes treat none. 2 crash rows. Disk 42 GB. Managed true. Proof will be the stamp.",
+  "assessment": "Issue application_crashes on mac-example. Ticket copies this stamp onto the INC.",
+  "plan": "Ticket opens the incident from this SOAP. This visit does not."
 }

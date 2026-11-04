@@ -1,7 +1,7 @@
 ---
 name: workspace-handoff
-description: "v0.4.0 — Workspace catalog of who writes each path. Lifecycle nurses own a folder. Metadata is the SOAP note the next nurse reads."
-version: "0.4.0"
+description: "v0.5.0 — Workspace catalog of who writes each path. Lifecycle nurses own a folder. Ticket writes the incident number from the investigation SOAP."
+version: "0.5.0"
 ---
 
 # Workspace handoff
@@ -33,6 +33,8 @@ paths.
 | `jamf/metadata.json` | metadata | Jamf Inventory | `jamf-inventory` `schemas/jamf-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. Counts are fine. The computer rows are not. |
 | `investigations/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Investigation | `investigation` `schemas/investigations-visit.schema.json` | The consolidated state of one endpoint found by serial, hostname, or username: owner, management, and the experience reading. `keys` use `device:` for the chassis serial. A later stamp is only that endpoint when the state changed. |
 | `investigations/metadata.json` | metadata | Investigation | `investigation` `schemas/investigations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `issue` is the verdict word. The device row is not. |
+| `tickets/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Ticket | `ticket` `schemas/tickets-visit.schema.json` | The ServiceNow incident opened from the investigation SOAP: number, state, serial, hostname. `keys` use `device:` for the chassis serial. A later stamp is only that incident when the number or state changed. |
+| `tickets/metadata.json` | metadata | Ticket | `ticket` `schemas/tickets-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `number` is the INC. Concise details are in the SOAP sentences. The incident row is not. |
 | `operations/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Operations | `operations` `schemas/operations-visit.schema.json` | In-life devices that are failing experience or compliance, plus serial and collector UID when known. `keys` use `device:` for the chassis serial. A later stamp is only devices whose issue or vitals changed. |
 | `operations/metadata.json` | metadata | Operations | `operations` `schemas/operations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. Counts are fine. The device rows are not. |
 

@@ -58,6 +58,25 @@ def mcp_call(tool, args, retries=1):
     return last if isinstance(last, dict) else {"success": False, "error": "empty envelope"}
 
 
+def tool_missing(err):
+    """True when the MCP tool is not on this agent. HTTP 404 is not that."""
+    text = (err or "").lower()
+    if any(
+        needle in text
+        for needle in (
+            "tool not found",
+            "unknown tool",
+            "no such tool",
+            "is not attached",
+            "available tools:",
+        )
+    ):
+        return True
+    if text.endswith(" not found") and "404" not in text and "/" not in text:
+        return True
+    return False
+
+
 def tool_dict(envelope):
     """Return (tool dict, error) from a hai_mcp envelope.
 

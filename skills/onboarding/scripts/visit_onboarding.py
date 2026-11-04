@@ -332,7 +332,7 @@ def call(tool, args, budget):
 
 def optional(tool, args, budget):
     body, err = call(tool, args, budget)
-    if err and "not found" in err.lower():
+    if err and visit_common.tool_missing(err):
         return None, "unattached"
     return body, err
 
@@ -349,16 +349,55 @@ def as_bool(value):
     return None
 
 
+def section(raw, name):
+    value = raw.get(name) if isinstance(raw, dict) else None
+    return value if isinstance(value, dict) else {}
+
+
 def rows_from(payload):
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
     if not isinstance(payload, dict):
         return []
-    for key in ("devices", "results", "computers", "value", "prestages"):
+    data = payload.get("data")
+    if isinstance(data, (dict, list)) and data is not payload:
+        nested = rows_from(data)
+        if nested:
+            return nested
+    for key in ("devices", "results", "computers", "value", "prestages", "computerPrestages"):
         value = payload.get(key)
         if isinstance(value, list):
             return [item for item in value if isinstance(item, dict)]
+        if isinstance(value, dict):
+            inner = value.get("computer") or value.get("device") or value.get("results")
+            if isinstance(inner, list):
+                return [item for item in inner if isinstance(item, dict)]
+            if isinstance(inner, dict):
+                return [inner]
     if payload.get("id") or payload.get("serial") or payload.get("serialNumber"):
         return [payload]
     return []
+
+
+def jamf_fields(raw):
+    general = section(raw, "general")
+    hardware = section(raw, "hardware")
+    located = section(raw, "userAndLocation")
+    remote = section(general, "remoteManagement")
+    return {
+        "jamf_id": blank(raw.get("id") or general.get("id") or raw.get("computerId")),
+        "name": blank(raw.get("name") or general.get("name") or raw.get("device_name")) or "",
+        "serial": blank(
+            raw.get("serial")
+            or hardware.get("serialNumber")
+            or general.get("serialNumber")
+            or raw.get("serialNumber")
+        ),
+        "user": blank(raw.get("username") or located.get("username") or raw.get("user") or raw.get("email")),
+        "jamf_managed": as_bool(
+            raw.get("managed") if raw.get("managed") is not None else remote.get("managed") or general.get("managed")
+        ),
+    }
 
 
 def walk_serials(obj, found):
@@ -439,15 +478,22 @@ def cmd_collect(args):
     estate = {}
     attached = []
     errors = []
+    gaps = []
 
     def take(tool, payload_args):
         body, err = optional(tool, payload_args, budget)
         if err == "unattached":
+            gaps.append(f"{tool} unattached")
+            print(f"onboarding skip {tool} unattached", file=sys.stderr)
             return None
         attached.append(tool)
         if err:
+            gaps.append(f"{tool} {err[:80]}")
             errors.append(err)
+            print(f"onboarding {tool} error {err[:200]}", file=sys.stderr)
             return None
+        n = len(rows_from(body or {}))
+        print(f"onboarding {tool} rows {n}", file=sys.stderr)
         return body
 
     fleet = not serial
@@ -498,16 +544,17 @@ def cmd_collect(args):
         )
         found = take("jamf_find_devices", {"serial": serial, "page": 0, "page_size": 25})
         for raw in rows_from(found or {}):
-            host = blank(raw.get("name") or (raw.get("general") or {}).get("name")) or host
+            fields = jamf_fields(raw)
+            host = fields["name"] or host
             upsert(
                 estate,
                 serial,
                 serial=serial,
                 name=host or "",
-                user=blank(raw.get("username") or (raw.get("userAndLocation") or {}).get("username")),
-                jamf_id=blank(raw.get("id") or (raw.get("general") or {}).get("id")),
+                user=fields["user"],
+                jamf_id=fields["jamf_id"],
                 jamf_enrolled=True,
-                jamf_managed=as_bool(raw.get("managed")),
+                jamf_managed=fields["jamf_managed"],
                 source="mdm",
             )
             break
@@ -558,35 +605,20 @@ def cmd_collect(args):
     else:
         found = take("jamf_find_devices", {"page": 0, "page_size": 100})
         for raw in rows_from(found or {})[:40]:
-            serial_value = blank(raw.get("serial") or (raw.get("hardware") or {}).get("serialNumber"))
-            host = blank(raw.get("name") or (raw.get("general") or {}).get("name")) or ""
-            ident = serial_value or host
+            fields = jamf_fields(raw)
+            ident = fields["serial"] or fields["name"]
             if not ident:
                 continue
             upsert(
                 estate,
                 ident,
-                name=host,
-                serial=serial_value,
-                user=blank(raw.get("username") or (raw.get("userAndLocation") or {}).get("username")),
-                jamf_id=blank(raw.get("id") or (raw.get("general") or {}).get("id")),
+                name=fields["name"],
+                serial=fields["serial"],
+                user=fields["user"],
+                jamf_id=fields["jamf_id"],
                 jamf_enrolled=True,
-                jamf_managed=as_bool(raw.get("managed")),
+                jamf_managed=fields["jamf_managed"],
                 source="mdm",
-            )
-        entra = take("intune_list_entra_devices", {"top": 25})
-        for raw in rows_from(entra or {})[:25]:
-            host = blank(raw.get("displayName") or raw.get("name")) or ""
-            ident = blank(raw.get("id") or raw.get("deviceId")) or host
-            if not ident:
-                continue
-            upsert(
-                estate,
-                ident,
-                name=host,
-                entra_id=blank(raw.get("id") or raw.get("objectId")),
-                join_type=blank(raw.get("joinType") or raw.get("trustType")),
-                source="directory",
             )
         managed = take("intune_list_intune_devices", {"top": 25})
         for raw in rows_from(managed or {})[:25]:
@@ -612,16 +644,25 @@ def cmd_collect(args):
         if not attached:
             row["stage"] = "unknown"
     waiting = {"not_seen", "prestage", "unknown"}
-    status = "unknown" if not attached else "degraded" if any(row["stage"] in waiting for row in devices) else "ok"
-    coverage = "partial" if errors or not attached else "complete"
+    mdm_rows = [row for row in devices if "mdm" in (row.get("sources") or [])]
+    jamf_gap = any(item.startswith("jamf_") for item in gaps)
+    status = "unknown" if (not attached or jamf_gap) else "degraded" if any(row["stage"] in waiting for row in devices) else "ok"
+    coverage = "partial" if errors or gaps or not attached else "complete"
     stage = devices[0]["stage"] if devices else None
+    gap_text = gaps[0] if gaps else ""
     if serial and devices:
         stage = devices[0]["stage"]
         headline = f"{serial} {devices[0].get('name') or 'unnamed'} stage {stage}."
+    elif mdm_rows:
+        headline = f"{len(mdm_rows)} enrolled or waiting in MDM. Stage {stage}."
+    elif jamf_gap:
+        headline = f"Jamf unread. {gap_text}."
     elif devices:
         headline = f"{len(devices)} device(s). Stage {stage}."
     else:
         headline = "No enrollment rows in scope."
+    if gap_text and "Jamf" not in headline:
+        headline = f"{headline} {gap_text}."
     record = {
         "status": status,
         "headline": headline[:400],
@@ -631,8 +672,10 @@ def cmd_collect(args):
     }
     soap = {
         "subjective": sentence(f"Onboarding check for {serial or 'fleet'}."),
-        "objective": sentence(f"{len(devices)} in scope. Stage {stage or 'none'}. Coverage {coverage}."),
-        "assessment": sentence(f"Status {status}. Stage {stage or 'none'}."),
+        "objective": sentence(
+            f"{len(devices)} in scope, {len(mdm_rows)} MDM. Stage {stage or 'none'}. Coverage {coverage}. {gap_text}".strip()
+        ),
+        "assessment": sentence(f"Status {status}. Stage {stage or 'none'}." + (f" {gap_text}." if jamf_gap else "")),
         "plan": sentence("Operations starts after enrolled or managed. This visit does not assign a PreStage."),
     }
     return save_record(ws, record, soap, fleet=fleet)

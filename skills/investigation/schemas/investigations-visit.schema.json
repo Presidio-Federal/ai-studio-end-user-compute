@@ -108,6 +108,13 @@
         "issue",
         "crash_count",
         "top_process",
+        "model",
+        "os",
+        "email",
+        "free_disk",
+        "dex_score",
+        "last_check_in",
+        "recommended_treat",
         "signals",
         "note"
       ],
@@ -130,6 +137,7 @@
         "issue": {
           "enum": [
             "application_crashes",
+            "disk",
             "experience_recorded",
             "experience_unread",
             "not_in_nexthink",
@@ -141,6 +149,15 @@
         },
         "crash_count": { "type": ["integer", "null"], "minimum": 0 },
         "top_process": { "type": ["string", "null"] },
+        "model": { "type": ["string", "null"], "maxLength": 80 },
+        "os": { "type": ["string", "null"], "maxLength": 80 },
+        "email": { "type": ["string", "null"], "maxLength": 80 },
+        "free_disk": { "type": ["string", "null"], "maxLength": 40 },
+        "dex_score": { "type": ["string", "null"], "maxLength": 40 },
+        "last_check_in": { "type": ["string", "null"] },
+        "recommended_treat": {
+          "enum": ["disk", "none", "unknown"]
+        },
         "signals": {
           "type": "array",
           "maxItems": 12,

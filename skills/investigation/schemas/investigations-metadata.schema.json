@@ -17,6 +17,7 @@
     "delta",
     "devices",
     "issue",
+    "treat",
     "subjective",
     "objective",
     "assessment",
@@ -39,6 +40,7 @@
       "type": ["string", "null"],
       "enum": [
         "application_crashes",
+        "disk",
         "experience_recorded",
         "experience_unread",
         "not_in_nexthink",
@@ -48,6 +50,10 @@
         "unknown",
         null
       ]
+    },
+    "treat": {
+      "type": ["string", "null"],
+      "enum": ["disk", "none", "unknown", null]
     },
     "subjective": { "type": "string", "maxLength": 400 },
     "objective": { "type": "string", "maxLength": 400 },

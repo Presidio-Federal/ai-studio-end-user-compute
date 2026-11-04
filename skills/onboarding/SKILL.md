@@ -1,18 +1,22 @@
 ---
 name: onboarding
-version: "0.2.0"
-description: "v0.2.0 — Get a device into management. Collect is read-only. Assigns a PreStage only when authorized. Does not investigate or retire."
+version: "0.3.0"
+description: "v0.3.0 — Get a device into management. Collect is read-only. Assigns a PreStage only when authorized. Does not investigate or retire."
 ---
 
 # Onboarding
 
 Read `onboarding/metadata.json` first. `evidence_ref` is the last stamp. Read it. `File not found` is the first run. Do not search.
 
+Do not call `get_folder_structure`. Built-in `read_file` filePath is the catalog path `onboarding/metadata.json`. Do not prefix `file_explorer/`. Do not pass `Internal directory` to built-in file tools.
+
 You own enrollment: pull a device into MDM or the directory. A line that asks for onboarding, PreStage, ADE, Autopilot, Intune, Entra, or whether a serial has enrolled is authorization. Do not confirm. You do not investigate health. You do not refresh or retire. You do not open a ticket. You do not assign a PreStage or change a deployment group unless the person authorizes it. This collect does not assign.
 
 ## Collect
 
-One `execute_command`, `execution_type: "mcp_orchestration"`. Copy the path Studio shows for `scripts/visit_onboarding.py`. Pass the `file_explorer` directory beside `skills` as `--workspace`. Do not set `timeout`.
+**First tool:** `read_file` `onboarding/metadata.json`. Then one `execute_command`, `execution_type: "mcp_orchestration"`. Use the path Studio shows for the attached `onboarding/scripts/visit_onboarding.py`. Copy it. Do not retype a path from memory. The transcript may render it as `Internal directory`; that string is the python path, not a folder to list. Do not set `timeout`.
+
+Each `execute_command` is a new container. In that container the workspace is the `file_explorer` folder beside `skills` on the path Studio shows for `visit_onboarding.py`. Copy that directory. Pass it as `--workspace`. Do not pass the relative name `file_explorer`, and do not `cd`.
 
 Omit filters to record what is waiting and what is already enrolled. Pass `--serial` when the task line names one chassis.
 
@@ -52,4 +56,4 @@ The script calls `jamf_assign_prestage_serial`. It does not write a stamp. Colle
 
 Schema and example: `schemas/onboarding-visit.schema.json`, `schemas/onboarding-metadata.schema.json`, `examples/onboarding-visit.example.json`, `examples/onboarding-metadata.example.json`. `device:` is the chassis serial. A hostname is a column. A username is a column.
 
-Do not `write_file` those paths. Do not write `state/`. Do not write `operations/` or `investigations/`.
+Do not `write_file` those paths. Do not write `state/`. Do not write `operations/` or `investigations/`. Do not call `get_folder_structure`.

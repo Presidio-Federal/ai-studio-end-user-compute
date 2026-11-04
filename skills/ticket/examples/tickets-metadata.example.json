@@ -1,0 +1,21 @@
+{
+  "keys": [],
+  "schema": "tickets-metadata/v1",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "source_agent": "ticket",
+  "evidence_ref": "tickets/2026-01-01T00-00-00Z.json",
+  "last_visit_id": "2026-01-01T00-00-00Z",
+  "last_collected_at": "2026-01-01T00:00:00Z",
+  "baseline_ref": "tickets/2026-01-01T00-00-00Z.json",
+  "status": "ok",
+  "coverage": "complete",
+  "delta": "first",
+  "devices": 1,
+  "number": "INC0010001",
+  "state": "1",
+  "issue": "application_crashes",
+  "subjective": "Open an incident from the investigation SOAP.",
+  "objective": "INC0010001 for mac-example. Issue application_crashes. Proof tickets/2026-01-01T00-00-00Z.json.",
+  "assessment": "The incident is open. Investigation replies to the caller with this number.",
+  "plan": "Investigation notify. This visit does not investigate."
+}

@@ -22,8 +22,21 @@ except ImportError:
 STAMP_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "investigations-visit.schema.json"
 META_SCHEMA = Path(__file__).resolve().parent.parent / "schemas" / "investigations-metadata.schema.json"
 META_REL = "investigations/metadata.json"
-MATERIAL = ("issue", "serial", "user", "managed", "crash_count", "top_process", "signal")
-SECTIONS = ["GENERAL", "HARDWARE", "USER_AND_LOCATION"]
+MATERIAL = (
+    "issue",
+    "serial",
+    "user",
+    "managed",
+    "crash_count",
+    "top_process",
+    "model",
+    "os",
+    "free_disk",
+    "dex_score",
+    "recommended_treat",
+    "signal",
+)
+SECTIONS = ["GENERAL", "HARDWARE", "OPERATING_SYSTEM", "USER_AND_LOCATION"]
 NAME_RE = re.compile(r"[A-Za-z0-9._-]{1,128}")
 USER_RE = re.compile(r"[A-Za-z0-9._@+-]{1,128}")
 INTEREST = ("crash", "cpu", "memory", "disk", "free", "dex", "boot", "score", "process", "freeze", "health")
@@ -212,6 +225,7 @@ def metadata(now, **fields):
         "delta": fields["delta"],
         "devices": fields["devices"],
         "issue": fields.get("issue"),
+        "treat": fields.get("treat"),
         "subjective": fields["subjective"],
         "objective": fields["objective"],
         "assessment": fields["assessment"],
@@ -335,6 +349,7 @@ def save_record(ws, record, soap):
             delta=delta,
             devices=len(devices),
             issue=issue,
+            treat=(devices[0].get("recommended_treat") if devices else None),
             **soap,
         )
     except ValueError as exc:
@@ -361,8 +376,13 @@ def save_record(ws, record, soap):
             "lookup": devices[0].get("lookup"),
             "matches": devices[0].get("matches"),
             "issue": issue,
+            "treat": devices[0].get("recommended_treat"),
             "crash_count": devices[0].get("crash_count"),
             "top_process": devices[0].get("top_process"),
+            "model": devices[0].get("model"),
+            "os": devices[0].get("os"),
+            "free_disk": devices[0].get("free_disk"),
+            "dex_score": devices[0].get("dex_score"),
             "managed": devices[0].get("managed"),
             "quiet": no_motion,
             "plan": soap["plan"],
@@ -376,6 +396,13 @@ def call(tool, args, budget):
         return None, "budget exhausted"
     print(f"investigations call {tool}", file=sys.stderr)
     return visit_common.tool_dict(visit_common.mcp_call(tool, args, retries=1))
+
+
+def optional(tool, args, budget):
+    body, err = call(tool, args, budget)
+    if err and visit_common.tool_missing(err):
+        return None, "unattached"
+    return body, err
 
 
 def section(raw, name):
@@ -461,7 +488,27 @@ def nql(query_id, parameters, budget):
 
 
 def serial_of(raw):
-    return blank(first(section(raw, "hardware").get("serialNumber"), raw.get("serial"), section(raw, "general").get("serialNumber")))
+    hardware = section(raw, "hardware")
+    general = section(raw, "general")
+    return blank(
+        first(
+            hardware.get("serialNumber"),
+            hardware.get("serial_number"),
+            raw.get("serial"),
+            raw.get("serialNumber"),
+            general.get("serialNumber"),
+            general.get("serial_number"),
+        )
+    )
+
+
+def chassis_serial(jamf_row, nexthink_row):
+    jamf = blank((jamf_row or {}).get("serial"))
+    nx = cell(nexthink_row or {}, "device.hardware.bios_serial_number", "serial")
+    if jamf and nx and jamf != nx:
+        print(f"investigations serial jamf {jamf} nexthink {nx}; using jamf", file=sys.stderr)
+        return jamf
+    return jamf or nx
 
 
 def id_of(raw):
@@ -471,6 +518,8 @@ def id_of(raw):
 def normalize_jamf(raw):
     general = section(raw, "general")
     located = section(raw, "userAndLocation")
+    hardware = section(raw, "hardware")
+    operating = section(raw, "operatingSystem")
     remote = section(general, "remoteManagement")
     capable = general.get("mdmCapable")
     if isinstance(capable, dict):
@@ -480,6 +529,9 @@ def normalize_jamf(raw):
         "name": blank(first(general.get("name"), raw.get("name"))) or "",
         "serial": serial_of(raw),
         "user": blank(first(located.get("username"), located.get("realname"), raw.get("username"))),
+        "email": blank(first(located.get("email"), located.get("emailAddress"), raw.get("email"))),
+        "model": blank(first(hardware.get("model"), hardware.get("modelIdentifier"), raw.get("model"))),
+        "os": blank(first(operating.get("version"), operating.get("name"), general.get("osVersion"), raw.get("os"))),
         "last_contact": blank(first(general.get("lastContactTime"), raw.get("lastContactTime"))),
         "managed": as_bool(first(remote.get("managed"), general.get("managed"), raw.get("managed"))),
         "supervised": as_bool(first(general.get("supervised"), raw.get("supervised"))),
@@ -605,7 +657,46 @@ def top_process(rows):
     return None
 
 
-def classify(jamf_row, nexthink_row, health_rows, crash_rows, health_err, lookup_err):
+def signal_metric(signals, *needles):
+    for item in signals or []:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").lower()
+        if any(needle in name for needle in needles):
+            return blank(item.get("value"))
+    return None
+
+
+def disk_low(free_disk, signals):
+    text = blank(free_disk) or signal_metric(signals, "free", "disk") or ""
+    if not text:
+        return False
+    try:
+        number = float(text.replace(",", "").split()[0])
+    except ValueError:
+        return False
+    if "%" in text:
+        return number < 10
+    return number < 10
+
+
+def merge_jamf_health(jamf_row, payload):
+    if not isinstance(payload, dict) or not jamf_row:
+        return jamf_row
+    evidence = payload.get("jamf_evidence") if isinstance(payload.get("jamf_evidence"), dict) else {}
+    jamf_row["os"] = jamf_row.get("os") or blank(payload.get("os") or evidence.get("os"))
+    jamf_row["model"] = jamf_row.get("model") or blank(payload.get("model") or evidence.get("model"))
+    jamf_row["free_disk"] = blank(payload.get("free_disk") or payload.get("freeDisk") or evidence.get("free_disk"))
+    jamf_row["email"] = jamf_row.get("email") or blank(evidence.get("email"))
+    findings = payload.get("findings")
+    if isinstance(findings, list):
+        jamf_row["findings"] = "; ".join(str(item)[:40] for item in findings[:4] if item)
+    elif findings:
+        jamf_row["findings"] = str(findings)[:160]
+    return jamf_row
+
+
+def classify(jamf_row, nexthink_row, health_rows, crash_rows, health_err, lookup_err, signals, free_disk):
     in_jamf = bool(jamf_row and jamf_row.get("id"))
     in_nexthink = bool(nexthink_row)
     if not in_jamf and not in_nexthink:
@@ -616,11 +707,21 @@ def classify(jamf_row, nexthink_row, health_rows, crash_rows, health_err, lookup
         return "not_in_nexthink"
     if crash_rows:
         return "application_crashes"
+    if disk_low(free_disk, signals):
+        return "disk"
     if health_err:
         return "experience_unread"
     if health_rows:
         return "experience_recorded"
     return "no_signal"
+
+
+def recommended_treat(issue, free_disk, signals):
+    if issue == "disk" or disk_low(free_disk, signals):
+        return "disk"
+    if issue in ("application_crashes", "experience_recorded", "no_signal"):
+        return "none"
+    return "unknown"
 
 
 def yn(value):
@@ -678,13 +779,31 @@ def cmd_collect(args):
         return 1
     jamf_row = jamf_row or {}
     nexthink_row = nexthink_row or {}
-    issue = classify(jamf_row, nexthink_row, health_rows or [], crash_rows, health_err, lookup_err)
-    partial = bool(jamf_row.get("_partial") or health_err or lookup_err)
-    status = "unknown" if issue == "unknown" else "degraded" if issue in ("application_crashes", "experience_unread", "not_in_jamf", "not_in_nexthink") else "ok"
+    if jamf_row.get("id") or jamf_row.get("serial"):
+        health_args = {"computer_id": str(jamf_row["id"])} if jamf_row.get("id") else {"serial": jamf_row.get("serial")}
+        jamf_health, jamf_health_err = optional("jamf_get_device_health", health_args, budget)
+        if jamf_health_err and jamf_health_err != "unattached":
+            print(f"investigations jamf_get_device_health {jamf_health_err[:120]}", file=sys.stderr)
+            partial_health = True
+        else:
+            partial_health = False
+        if jamf_health:
+            jamf_row = merge_jamf_health(jamf_row, jamf_health)
+    else:
+        partial_health = False
+    signals = signals_from(health_rows or [])
+    free_disk = jamf_row.get("free_disk") or signal_metric(signals, "free", "disk")
+    dex_score = signal_metric(signals, "dex", "score")
+    issue = classify(jamf_row, nexthink_row, health_rows or [], crash_rows, health_err, lookup_err, signals, free_disk)
+    treat = recommended_treat(issue, free_disk, signals)
+    partial = bool(jamf_row.get("_partial") or health_err or lookup_err or partial_health)
+    status = "unknown" if issue == "unknown" else "degraded" if issue in ("application_crashes", "disk", "experience_unread", "not_in_jamf", "not_in_nexthink") else "ok"
     coverage = "partial" if partial else "complete"
-    serial_value = jamf_row.get("serial")
+    serial_value = chassis_serial(jamf_row, nexthink_row)
     hostname = jamf_row.get("name") or cell(nexthink_row, "device.name") or name or ""
     who = jamf_row.get("user") or cell(nexthink_row, "device.login.last_login_user_name")
+    os_name = jamf_row.get("os") or cell(nexthink_row, "device.operating_system.name")
+    model = jamf_row.get("model") or cell(nexthink_row, "device.hardware.model")
     device = {
         "id": serial_value or hostname or user,
         "name": hostname,
@@ -703,13 +822,24 @@ def cmd_collect(args):
         "issue": issue,
         "crash_count": None if crash_rows is None else len(crash_rows),
         "top_process": top_process(process_rows),
-        "signals": signals_from(health_rows or []),
+        "model": model,
+        "os": os_name,
+        "email": jamf_row.get("email"),
+        "free_disk": free_disk,
+        "dex_score": dex_score,
+        "last_check_in": jamf_row.get("last_contact"),
+        "recommended_treat": treat,
+        "signals": signals,
     }
+    if jamf_row.get("findings"):
+        extra = list(device["signals"])
+        extra.append({"name": "jamf_findings", "value": str(jamf_row["findings"])[:80]})
+        device["signals"] = extra[:12]
     scope = f"{lookup}:{serial or name or user}"
     crashes = "unread" if device["crash_count"] is None else str(device["crash_count"])
     record = {
         "status": status,
-        "headline": f"{device['serial'] or 'no serial'} {device['name'] or 'unnamed'} issue {issue}."[:400],
+        "headline": f"{device['serial'] or 'no serial'} {device['name'] or 'unnamed'} issue {issue} treat {treat}."[:400],
         "coverage": coverage,
         "scope": scope,
         "devices": [device],
@@ -717,10 +847,14 @@ def cmd_collect(args):
     soap = {
         "subjective": sentence(f"Investigation of {lookup} {serial or name or user}."),
         "objective": sentence(
-            f"{device['name'] or 'unnamed'} user {who or 'unassigned'}. Issue {issue}. {crashes} crash rows. Managed {yn(device['managed'])}."
+            f"{device['name'] or 'unnamed'} serial {serial_value or 'none'} user {who or 'unassigned'}. "
+            f"Issue {issue} treat {treat}. {crashes} crash rows. Disk {free_disk or 'unread'}. "
+            f"Managed {yn(device['managed'])}. Proof will be the stamp."
         ),
-        "assessment": sentence(f"Issue {issue} on {device['name'] or 'unnamed'}."),
-        "plan": sentence("Say what this means. This visit does not open a ticket."),
+        "assessment": sentence(
+            f"Issue {issue} on {device['name'] or 'unnamed'}. Ticket copies this stamp onto the INC."
+        ),
+        "plan": sentence("Ticket opens the incident from this SOAP. This visit does not."),
     }
     return save_record(ws, record, soap)
 
@@ -752,6 +886,37 @@ def cmd_annotate(args):
     return 0
 
 
+def cmd_notify(args):
+    ws = resolve_workspace(args.workspace)
+    if ws is None:
+        return 1
+    tickets = visit_common.load_json(ws, "tickets/metadata.json")
+    if not isinstance(tickets, dict):
+        print('{"error": "tickets/metadata.json missing"}', file=sys.stderr)
+        return 1
+    number = blank(tickets.get("number"))
+    if not number:
+        print('{"error": "ticket SOAP has no number"}', file=sys.stderr)
+        return 1
+    details = sentence(
+        blank(tickets.get("objective"))
+        or blank(tickets.get("assessment"))
+        or f"{number} is open."
+    )
+    reply(
+        {
+            "plane": "investigations",
+            "number": number,
+            "state": tickets.get("state"),
+            "details": details,
+            "metadata": "tickets/metadata.json",
+            "stamp": tickets.get("evidence_ref"),
+            "reply": sentence(f"{number}. {details}"),
+        }
+    )
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description="Investigations visit")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -777,6 +942,9 @@ def main():
     annotate.add_argument("--assessment", required=True)
     annotate.add_argument("--plan", required=True)
     annotate.set_defaults(func=cmd_annotate)
+    notify = sub.add_parser("notify")
+    notify.add_argument("--workspace", required=True)
+    notify.set_defaults(func=cmd_notify)
     args = parser.parse_args()
     return args.func(args)
 
