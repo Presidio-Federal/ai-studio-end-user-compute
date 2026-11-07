@@ -8,7 +8,7 @@ No endpoint yet: use the list calls in `references/tools.md`. Ask which one. Do 
 
 One endpoint chosen: one `execute_command`, `execution_type: "mcp_orchestration"`, `collect` with `--serial`, `--name`, or `--user`. Then say what the record means. Use `annotate` under `execution_type: "standard"` for that opinion.
 
-Campaign-authorized: after collect, Ticket opens the incident from this SOAP. Then `notify` under `execution_type: "standard"`. That last stdout line is the reply to the API caller.
+Campaign-authorized: after collect, Ticket opens the incident from this SOAP. Then `notify` under `execution_type: "mcp_orchestration"`. That sends `#mcp_triage_result` and the last stdout line is the reply to the API caller.
 
 ```text
 python3 <copied script path> notify --workspace <copied file_explorer directory>

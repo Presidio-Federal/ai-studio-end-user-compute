@@ -26,4 +26,6 @@ The prompt does not call these on the collect turn. `scripts/visit_investigation
 
 `#mcp_device_health` and `#mcp_device_top_processes` take one real device name. Do not pass `"*"` for those.
 
-Do not call `jamf_send_mdm_command`, `jamf_set_computer_group_membership`, `jamf_api_post`, `jamf_api_put`, `jamf_api_delete`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, `nexthink_trigger_campaign`, or any `snow_` tool. `notify` reads `tickets/metadata.json`. It does not call MCP.
+Do not call `jamf_send_mdm_command`, `jamf_set_computer_group_membership`, `jamf_api_post`, `jamf_api_put`, `jamf_api_delete`, `nexthink_execute_remote_action`, `nexthink_trigger_workflow`, or any `snow_` tool on collect.
+
+`notify` may call `nexthink_trigger_campaign` with `approved` true, `campaign_nql_id` `#mcp_triage_result`, parameters `ticket_number` and `details`. `user_sids` is a one-item list: the `user_sid` from that investigation stamp. That is the employee who answered Fix now. Never `"*"`. Never a second SID. If `user_sid` is missing, skip the campaign; still print the ticket number. Collect still must not send a campaign.

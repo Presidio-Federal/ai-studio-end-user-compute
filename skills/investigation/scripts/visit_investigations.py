@@ -804,6 +804,16 @@ def cmd_collect(args):
     who = jamf_row.get("user") or cell(nexthink_row, "device.login.last_login_user_name")
     os_name = jamf_row.get("os") or cell(nexthink_row, "device.operating_system.name")
     model = jamf_row.get("model") or cell(nexthink_row, "device.hardware.model")
+    user_sid = cell(
+        nexthink_row,
+        "user.sid",
+        "user.user.sid",
+        "device.login.last_login_user.sid",
+    )
+    if not user_sid and who:
+        people, _sid_err = nql("#mcp_user_lookup", {"user_name": who}, budget)
+        if people:
+            user_sid = cell(people[0], "user.sid", "sid", "user.user.sid")
     device = {
         "id": serial_value or hostname or user,
         "name": hostname,
@@ -815,6 +825,7 @@ def cmd_collect(args):
         "user_approved_mdm": jamf_row.get("user_approved_mdm"),
         "mdm_capable": jamf_row.get("mdm_capable"),
         "collector_uid": cell(nexthink_row, "device.collector.uid"),
+        "user_sid": user_sid,
         "platform": cell(nexthink_row, "device.operating_system.platform"),
         "last_seen": cell(nexthink_row, "device.last_seen") or jamf_row.get("last_contact"),
         "lookup": lookup,
@@ -903,6 +914,42 @@ def cmd_notify(args):
         or blank(tickets.get("assessment"))
         or f"{number} is open."
     )
+    campaign = strip_arg(args.campaign) or "#mcp_triage_result"
+    if campaign and not campaign.startswith("#"):
+        campaign = f"#{campaign}"
+    user_sid = None
+    meta = load_meta(ws)
+    if meta and meta.get("evidence_ref"):
+        stamp = visit_common.load_json(ws, meta["evidence_ref"])
+        devices = (stamp or {}).get("devices") if isinstance(stamp, dict) else None
+        if isinstance(devices, list) and devices and isinstance(devices[0], dict):
+            user_sid = blank(devices[0].get("user_sid"))
+    if user_sid and (user_sid == "*" or "," in user_sid or " " in user_sid):
+        print('{"error": "user_sid on the stamp is not a single SID"}', file=sys.stderr)
+        return 1
+    campaign_status = "skipped"
+    if user_sid:
+        budget = visit_common.Budget(240)
+        _body, err = optional(
+            "nexthink_trigger_campaign",
+            {
+                "campaign_nql_id": campaign,
+                "user_sids": [user_sid],
+                "parameters": {"ticket_number": number, "details": details},
+                "approved": True,
+            },
+            budget,
+        )
+        if err == "unattached":
+            campaign_status = "unattached"
+            print('{"warning": "nexthink_trigger_campaign is not attached"}', file=sys.stderr)
+        elif err:
+            campaign_status = "error"
+            print(json.dumps({"warning": err[:200]}), file=sys.stderr)
+        else:
+            campaign_status = "sent"
+    else:
+        print('{"warning": "no user_sid on the investigation stamp; result campaign not sent"}', file=sys.stderr)
     reply(
         {
             "plane": "investigations",
@@ -911,6 +958,9 @@ def cmd_notify(args):
             "details": details,
             "metadata": "tickets/metadata.json",
             "stamp": tickets.get("evidence_ref"),
+            "campaign": campaign,
+            "campaign_status": campaign_status,
+            "user_sid": user_sid,
             "reply": sentence(f"{number}. {details}"),
         }
     )
@@ -944,6 +994,7 @@ def main():
     annotate.set_defaults(func=cmd_annotate)
     notify = sub.add_parser("notify")
     notify.add_argument("--workspace", required=True)
+    notify.add_argument("--campaign", default="#mcp_triage_result")
     notify.set_defaults(func=cmd_notify)
     args = parser.parse_args()
     return args.func(args)

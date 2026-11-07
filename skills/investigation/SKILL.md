@@ -1,7 +1,7 @@
 ---
 name: investigation
-version: "0.11.0"
-description: "v0.11.0 — Investigate one chosen endpoint. Writes a troubleshooting pack for Ticket. Chassis serial from Jamf and Nexthink."
+version: "0.12.0"
+description: "v0.12.0 — Investigate one chosen endpoint. After Ticket writes, notify sends the INC to the employee campaign."
 ---
 
 # Investigation
@@ -46,13 +46,13 @@ python3 <copied script path> annotate --workspace <copied file_explorer director
 
 Do not call `snow_create_incident`. If Ticket is attached as a subagent, start it with one line: open the incident from the investigations SOAP. Do not paste the device row. Then `read_file` `tickets/metadata.json`. `File not found` means Ticket has not written. Stop. Do not invent a number.
 
-When that SOAP has a `number`, one `execute_command`, `execution_type: "standard"`, same copied paths:
+When that SOAP has a `number`, one `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths:
 
 ```text
 python3 <copied script path> notify --workspace <copied file_explorer directory>
 ```
 
-The last stdout line is the ticket number and concise details. That line is your reply to the API caller.
+`notify` sends `#mcp_triage_result` with `ticket_number` and `details`. The last stdout line is the ticket number. That line is your reply to the API caller. The employee sees campaign 2, not campaign 1 waiting.
 
 ## Files
 
