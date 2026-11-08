@@ -533,6 +533,33 @@ def find_existing(serial, name, prior_number, budget):
     return None, None
 
 
+def is_sys_id(value):
+    text = blank(value) or ""
+    return bool(re.fullmatch(r"[0-9a-f]{32}", text.lower()))
+
+
+def company_from_row(row):
+    if not isinstance(row, dict):
+        return None
+    raw = row.get("company")
+    ident = None
+    name = ""
+    if isinstance(raw, dict):
+        ident = pick_sys_id(raw) or blank(raw.get("sys_id")) or blank(raw.get("value")) or blank(raw.get("id"))
+        name = cell(raw, "name", "display_value", "display_name") or ""
+    else:
+        ident = blank(raw)
+        name = cell(row, "company_name") or ""
+        if ident and not is_sys_id(ident):
+            name = name or ident
+            ident = blank(row.get("company_id"))
+    if not is_sys_id(ident):
+        ident = blank(row.get("company_id"))
+    if is_sys_id(ident):
+        return {"id": ident, "name": name}
+    return None
+
+
 def pick_company(payload):
     rows = dicts_from(payload)
     if not rows and isinstance(payload, dict):
@@ -546,12 +573,33 @@ def pick_company(payload):
         item = {"id": ident, "name": name}
         if name.lower().endswith(" euc"):
             preferred.append(item)
-        else:
-            preferred.append(item)
-    for item in preferred:
-        if item["name"].lower().endswith(" euc"):
-            return item
     return preferred[0] if preferred else None
+
+
+def resolve_euc_company(budget):
+    """Company of the EUC demo slice. u_euc_demo lives on hardware, not core_company."""
+    body, err = optional("snow_find_assets", {"u_euc_demo": True, "limit": 10}, budget)
+    if err and err != "unattached":
+        print(f"tickets company assets {err[:120]}", file=sys.stderr)
+    elif not err:
+        for hit in dicts_from(body or {}):
+            chosen = company_from_row(hit)
+            if chosen:
+                return chosen
+    for args in (
+        {"search": "EUC", "customer": True, "limit": 25},
+        {"u_euc_demo": True, "limit": 25},
+    ):
+        body, err = optional("snow_find_companies", args, budget)
+        if err == "unattached":
+            return None
+        if err:
+            print(f"tickets company {err[:120]}", file=sys.stderr)
+            continue
+        chosen = pick_company(body)
+        if chosen:
+            return chosen
+    return None
 
 
 def pick_asset(payload):
@@ -561,6 +609,7 @@ def pick_asset(payload):
     if not rows:
         return None
     hit = rows[0]
+    company = company_from_row(hit)
     return {
         "asset_id": pick_sys_id(hit) or blank(hit.get("sys_id")) or blank(hit.get("id")),
         "asset_tag": cell(hit, "asset_tag", "display_name"),
@@ -568,6 +617,7 @@ def pick_asset(payload):
         if hit.get("ci")
         else None,
         "serial": cell(hit, "serial_number", "serial"),
+        "company_id": company["id"] if company else None,
     }
 
 
@@ -576,14 +626,6 @@ def ensure_asset(device, budget):
     hostname = blank(device.get("name")) or serial or "unnamed"
     if not serial:
         return {}, None
-    company_id = None
-    companies, company_err = optional("snow_find_companies", {"u_euc_demo": True, "limit": 25}, budget)
-    if company_err and company_err != "unattached":
-        print(f"tickets company {company_err[:120]}", file=sys.stderr)
-    elif not company_err:
-        chosen = pick_company(companies)
-        if chosen:
-            company_id = chosen["id"]
     found = None
     for args in (
         {"serial_number": serial, "u_euc_demo": True, "limit": 5},
@@ -599,6 +641,11 @@ def ensure_asset(device, budget):
         if found and found.get("asset_id"):
             break
         found = None
+    company_id = (found or {}).get("company_id")
+    if not company_id:
+        chosen = resolve_euc_company(budget)
+        if chosen:
+            company_id = chosen["id"]
     if found is None:
         payload = {
             "serial_number": serial,
@@ -612,19 +659,39 @@ def ensure_asset(device, budget):
         if err and err != "unattached":
             print(f"tickets asset upsert {err[:120]}", file=sys.stderr)
         elif not err:
-            found = pick_asset(body) or {"asset_id": pick_sys_id(body), "asset_tag": None, "cmdb_ci": None, "serial": serial}
-    cis, ci_err = optional("snow_find_cis", {"serial_number": serial, "limit": 5}, budget)
-    if ci_err and ci_err != "unattached":
-        print(f"tickets cis {ci_err[:120]}", file=sys.stderr)
-    ci_id = None
-    for hit in dicts_from(cis or {}):
-        ci_id = pick_sys_id(hit) or blank(hit.get("sys_id")) or blank(hit.get("id"))
-        if ci_id:
-            break
+            found = pick_asset(body) or {
+                "asset_id": pick_sys_id(body),
+                "asset_tag": None,
+                "cmdb_ci": None,
+                "serial": serial,
+                "company_id": company_id,
+            }
+    ci_id = (found or {}).get("cmdb_ci")
+    if not ci_id:
+        ci_searches = []
+        if company_id:
+            ci_searches.append({"serial_number": serial, "company": company_id, "limit": 5})
+        ci_searches.append({"serial_number": serial, "u_euc_demo": True, "limit": 5})
+        ci_searches.append({"serial_number": serial, "limit": 5})
+        for args in ci_searches:
+            cis, ci_err = optional("snow_find_cis", args, budget)
+            if ci_err == "unattached":
+                break
+            if ci_err:
+                print(f"tickets cis {ci_err[:120]}", file=sys.stderr)
+                continue
+            for hit in dicts_from(cis or {}):
+                ci_id = pick_sys_id(hit) or blank(hit.get("sys_id")) or blank(hit.get("id"))
+                if ci_id:
+                    break
+            if ci_id:
+                break
     if found is None:
         found = {}
     if ci_id:
         found["cmdb_ci"] = ci_id
+    if company_id:
+        found["company_id"] = company_id
     return found, None
 
 

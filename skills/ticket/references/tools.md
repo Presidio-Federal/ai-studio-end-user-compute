@@ -2,14 +2,18 @@
 
 The visit script calls the tools that are attached. The prompt does not. A missing ServiceNow write tool is a halt.
 
+The ServiceNow **instance** is the connector attached in Studio. The skill does not set a URL or a customer name. Use the same ServiceNow MCP as the other EUC demo assets so network and endpoint tickets share one instance later.
+
+The **slice** on that instance is `u_euc_demo` on hardware assets, plus `EUC_DEMO` on the INC. Company comes from those demo assets. `u_euc_demo` is not a company-table field. A company-name search is only the fallback, and only names that end ` euc`.
+
 ## Open
 
 | Tool | When |
 |------|------|
-| `snow_find_companies` | `u_euc_demo` true. The EUC company on the hardware asset. Unattached is a gap. |
-| `snow_find_assets` | `serial_number` from the investigation stamp. Prefer `u_euc_demo` true. |
-| `snow_upsert_asset` | When that serial is not yet an EUC hardware asset. `install_status` `in_use`. `company` from the EUC company find. Comments mark it `EUC_DEMO`. Unattached is a gap. |
-| `snow_find_cis` | `serial_number` from the investigation stamp. A hit becomes `cmdb_ci` on the incident. Unattached is a gap. |
+| `snow_find_assets` | Serial from the investigation stamp, prefer `u_euc_demo` true. Also `u_euc_demo` true with no serial: the company of that demo slice, shared with network hardware on the same instance. |
+| `snow_find_companies` | Only if those assets have no company. `search` `EUC`, `customer` true. Pick the name that ends ` euc`. Do not take the first unfiltered company. |
+| `snow_upsert_asset` | When that serial is not yet an EUC hardware asset. `install_status` `in_use`. `company` from the slice above. Comments mark it `EUC_DEMO`. Unattached is a gap. |
+| `snow_find_cis` | `serial_number` from the investigation stamp. Prefer the same `company`. A hit becomes `cmdb_ci` on the incident. Unattached is a gap. |
 | `snow_find_incidents` | Search the hostname, then the serial, `active_only` true, `limit` 25. Reuse a matching active INC. |
 | `snow_get_incident` | When the last ticket stamp already has a number, or a find hit needs a state. |
 | `snow_create_incident` | When no active matching INC exists. `short_description` starts with `EUC_DEMO`. `work_notes` is the investigation pack, first line `EUC_DEMO`. `description` is SOAP plus that pack. `jamf_evidence` from the stamp columns. `cmdb_ci` from the computer CI. `contact_type` `virtual_agent`. |

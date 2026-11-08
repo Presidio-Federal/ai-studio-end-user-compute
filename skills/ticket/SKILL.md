@@ -1,7 +1,7 @@
 ---
 name: ticket
-version: "0.3.0"
-description: "v0.3.0 — Open a ServiceNow incident from the investigation pack. Marks it EUC_DEMO for the Operations API trigger."
+version: "0.3.1"
+description: "v0.3.1 — Open a ServiceNow incident from the investigation pack. Marks it EUC_DEMO for the Operations API trigger."
 ---
 
 # Ticket
