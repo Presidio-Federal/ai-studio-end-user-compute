@@ -10,7 +10,7 @@ Nurses own a lifecycle role. Tools attached to that nurse are how it collects. T
 | jamf-inventory-agent | 0.2.0 | MiniMax |
 | investigation-agent | 0.14.0 | MiniMax |
 | ticket-agent | 0.3.2 | MiniMax |
-| operations-agent | 0.8.0 | MiniMax |
+| operations-agent | 0.9.0 | MiniMax |
 | demo-agent | 0.3.0 | MiniMax |
 
 ## Skills
@@ -22,7 +22,7 @@ Nurses own a lifecycle role. Tools attached to that nurse are how it collects. T
 | jamf-inventory | 0.2.0 | Whether a Jamf computer exists, who it belongs to, and its management level. |
 | investigation | 0.15.0 | `collect` opens the EUC_DEMO incident. A crash sets `recommended_treat` to `crash`, not `none`. |
 | ticket | 0.3.2 | Same catalog as Investigation. `tickets/metadata.json` missing is the first run. Copies the investigation pack onto the INC with `EUC_DEMO`. Company comes from `u_euc_demo` hardware. |
-| operations | 0.8.0 | Ticket-authorized disk group or one matching crash remote action. Close only after a fix. |
+| operations | 0.9.0 | Ticket-authorized disk uses `MCP-Remediate-Disk`. A crash uses `MCP-Remediate-Crash`. Close only after that group update. |
 | demo | 0.3.0 | `start` triggers workflow `#mcp_investigate_on_consent`. The campaign stays Workflow. Fix now calls Investigation. |
 
 Refresh and retirement are the next roles. They are not in the catalog yet.

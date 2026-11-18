@@ -36,12 +36,10 @@ confirm. Do not collect the whole fleet first.
    `execute_command` / `mcp_orchestration` paths as collect.
 4. If `recommended_treat` is `disk`, `treat` with `--serial` and `--group`
    `MCP-Remediate-Disk`.
-5. If `recommended_treat` is `crash`, fix the crash. `nexthink_list_remote_actions`
-   with `purpose` `REMEDIATION`, then `nexthink_describe_remote_action`. Run
-   `nexthink_execute_remote_action` with `approved` true only when the action
-   allows API and the device platform. Use the collector UID from the
-   investigation stamp. If none apply, do not close the INC. `notify`
-   `#mcp_ops_update` with what you found and stop.
+5. If `recommended_treat` is `crash`, `treat` with `--serial` and `--group`
+   `MCP-Remediate-Crash`. That is the same kind of fix as disk: add the Mac
+   to the static group and blank-push it so the Jamf policy runs. Do not use
+   a Nexthink remote action for this. Those remediation scripts are Windows-only.
 6. `notify` `#mcp_ops_update` after a fix has started.
 7. `close` only after that fix. The script resolves the INC only when the
    short description starts with `EUC_DEMO` and that serial is an EUC demo
@@ -57,6 +55,6 @@ python3 <copied script path> close --workspace <copied file_explorer directory> 
 python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_closed" --details "The disk treat finished."
 ```
 
-Do not call `snow_create_incident`. A crash fix may run one remediation remote action. Do not run one that is Windows-only against this Mac.
+Do not call `snow_create_incident`. Do not run a Nexthink remote action for a crash.
 Create the three campaigns with `references/campaigns.md` before the first
 send. One user SID. Skip the send when that SID is missing.
