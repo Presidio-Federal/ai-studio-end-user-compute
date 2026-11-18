@@ -1,7 +1,7 @@
 ---
 name: operations
-version: "0.5.0"
-description: "v0.5.0 — On an EUC demo computer ticket, collect, treat a disk fault, and resolve the incident."
+version: "0.6.0"
+description: "v0.6.0 — In-life devices and their open EUC demo incidents. Treats disk and resolves the INC when authorized."
 ---
 
 # Operations
@@ -10,7 +10,9 @@ Read `operations/metadata.json` first. `evidence_ref` is the last stamp. Read it
 
 Do not call `get_folder_structure`. Built-in `read_file` filePath is the catalog path `operations/metadata.json`. Do not prefix `file_explorer/`. Do not pass `Internal directory` to built-in file tools.
 
-You own devices already in the fleet that are failing. A line that asks who is sick, DEX, compliance, or in-life health is authorization to collect. Do not confirm. You do not enroll a device. You do not investigate one chosen endpoint (that is Investigation). You do not open a ticket, run a remote action, start a workflow, or send a campaign. You do not change a computer group or send MDM unless the person authorizes that treat, or an API `humanPrompt` names a serial and says the ticket authorized this visit.
+You own devices already in the fleet that are failing, and the open EUC demo incidents on them. A line that asks who is sick, DEX, compliance, in-life health, or which tickets are open is authorization. Do not confirm. You do not enroll a device. You do not open a new ticket, run a remote action, start a workflow, or send a campaign. You do not change a computer group or send MDM unless the person authorizes that treat, or an API `humanPrompt` names a serial and says the ticket authorized this visit.
+
+Open tickets: `snow_find_incidents` with `search` `EUC_DEMO` and `active_only` true. One INC: `snow_get_incident`. Do not refuse that read. Do not name another agent.
 
 The ticket-to-API contract is `references/ticket-api.md`.
 

@@ -34,6 +34,17 @@ The person must name a serial and authorize the fix. Collect does not treat.
 
 Disk remediation on this estate uses the static group `MCP-Remediate-Disk`. Do not invent a group. Do not replace the group's membership list. Do not call `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, or `jamf_api_delete`. Those need a path this skill does not supply.
 
+## Open tickets
+
+The agent calls these. Collect does not.
+
+| Tool | Call |
+|------|------|
+| `snow_find_incidents` | `search` `EUC_DEMO`, `active_only` true. These are the open project tickets. |
+| `snow_get_incident` | One INC number from that list or from the task line. |
+
+Do not call `snow_create_incident` for this question.
+
 ## Close (only a ticket-authorized EUC computer)
 
 | Tool | Call |
