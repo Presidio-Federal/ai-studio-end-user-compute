@@ -53,7 +53,7 @@
     },
     "treat": {
       "type": ["string", "null"],
-      "enum": ["disk", "none", "unknown", null]
+      "enum": ["disk", "crash", "none", "unknown", null]
     },
     "subjective": { "type": "string", "maxLength": 400 },
     "objective": { "type": "string", "maxLength": 400 },

@@ -158,7 +158,7 @@
         "dex_score": { "type": ["string", "null"], "maxLength": 40 },
         "last_check_in": { "type": ["string", "null"] },
         "recommended_treat": {
-          "enum": ["disk", "none", "unknown"]
+          "enum": ["disk", "crash", "none", "unknown"]
         },
         "signals": {
           "type": "array",

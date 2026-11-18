@@ -20,7 +20,7 @@ Nurses own a lifecycle role. Tools attached to that nurse are how it collects. T
 | workspace-handoff | 0.6.0 | Catalog for onboarding, Jamf inventory, investigations, tickets, operations, and demo stamps plus SOAP notes. Visit helpers live in `scripts/visit_common.py`. |
 | onboarding | 0.3.0 | Enrollment into MDM. Collect is read-only. Jamf 404 is a gap, not an unattached tool. Assigns a PreStage only when authorized. |
 | jamf-inventory | 0.2.0 | Whether a Jamf computer exists, who it belongs to, and its management level. |
-| investigation | 0.15.0 | `collect` opens the EUC_DEMO incident. A crash sets `recommended_treat` to `crash`, not `none`. |
+| investigation | 0.15.1 | `collect` opens the EUC_DEMO incident. `recommended_treat` allows `crash`. |
 | ticket | 0.3.2 | Same catalog as Investigation. `tickets/metadata.json` missing is the first run. Copies the investigation pack onto the INC with `EUC_DEMO`. Company comes from `u_euc_demo` hardware. |
 | operations | 0.9.0 | Ticket-authorized disk uses `MCP-Remediate-Disk`. A crash uses `MCP-Remediate-Crash`. Close only after that group update. |
 | demo | 0.3.0 | `start` triggers workflow `#mcp_investigate_on_consent`. The campaign stays Workflow. Fix now calls Investigation. |

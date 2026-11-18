@@ -1,7 +1,7 @@
 ---
 name: investigation
-version: "0.15.0"
-description: "v0.15.0 — Investigate, open the EUC_DEMO incident, and mark a crash as a crash fix."
+version: "0.15.1"
+description: "v0.15.1 — Investigate and open the EUC_DEMO incident. A crash is a valid treat."
 ---
 
 # Investigation
