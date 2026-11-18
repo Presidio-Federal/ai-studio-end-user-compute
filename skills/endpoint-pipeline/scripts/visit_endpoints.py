@@ -55,9 +55,10 @@ OWNED = (
     "last_seen",
     "@timestamp",
     "management_state",
+    "dex_score",
     "location",
 )
-MATERIAL = ("request", "site", "warehouse", "hostname", "user", "os", "last_check_in", "management_state")
+MATERIAL = ("request", "site", "warehouse", "hostname", "user", "os", "last_check_in", "management_state", "dex_score")
 
 
 def strip_arg(value):
@@ -380,8 +381,27 @@ def pick_jamf(rows, serial):
     return checked[-1]
 
 
+def nql_value(row, *names):
+    if not isinstance(row, dict):
+        return None
+    folded = {str(key).lower(): value for key, value in row.items()}
+    for name in names:
+        text = blank(folded.get(name.lower()))
+        if isinstance(text, str) and text:
+            return text
+    return None
+
+
+def dex_score_from(rows):
+    for row in rows:
+        score = nql_value(row, "dex_score", "dex.score", "score")
+        if score:
+            return score
+    return None
+
+
 def enrich(serial, budget):
-    """Hostname, user, OS, check-in, and management. These do not set site or request."""
+    """Hostname, user, OS, check-in, management, and DEX score. These do not set site or request."""
     facts = {"feeds": []}
     gaps = []
     found, err = call("jamf_find_devices", {"serial": serial, "page": 0, "page_size": 25}, budget)
@@ -435,8 +455,23 @@ def enrich(serial, budget):
         if nql_err:
             if not visit_common.tool_missing(nql_err):
                 gaps.append("nexthink")
-        elif nql_rows(payload):
+        elif nql_rows(payload) and "Nexthink" not in facts["feeds"]:
             facts["feeds"].append("Nexthink")
+        vitals, vitals_err = call(
+            "nexthink_nql_execute",
+            {"query_id": "#mcp_device_vitals", "parameters": {"device_name": host}},
+            budget,
+        )
+        if vitals_err:
+            if not visit_common.tool_missing(vitals_err) and "nexthink" not in gaps:
+                gaps.append("nexthink")
+        else:
+            rows = nql_rows(vitals)
+            if rows and "Nexthink" not in facts["feeds"]:
+                facts["feeds"].append("Nexthink")
+            score = dex_score_from(rows)
+            if score:
+                facts["dex_score"] = score
     if "managed" in facts:
         facts["management_state"] = "managed" if facts["managed"] else "unmanaged"
     facts["gaps"] = gaps
@@ -477,7 +512,7 @@ def documents(computers, parts, order_rows):
 
 
 def apply_facts(doc, facts):
-    for field in ("hostname", "user", "os", "last_check_in", "management_state"):
+    for field in ("hostname", "user", "os", "last_check_in", "management_state", "dex_score"):
         put(doc, field, facts.get(field))
     if facts.get("last_check_in"):
         doc["last_seen"] = facts["last_check_in"]
@@ -719,6 +754,7 @@ def row_view(doc, facts):
         "os": doc.get("os"),
         "last_check_in": doc.get("last_check_in"),
         "management_state": doc.get("management_state"),
+        "dex_score": doc.get("dex_score"),
         "sources": ["ServiceNow"] + [name for name in facts.get("feeds") or [] if name != "ServiceNow"],
     }
 
@@ -803,6 +839,7 @@ def emit(view, note):
         "os": view.get("os"),
         "last_check_in": view.get("last_check_in"),
         "management_state": view.get("management_state"),
+        "dex_score": view.get("dex_score"),
         "sources": view.get("sources") or ["ServiceNow"],
         "note": note[:200],
     }
@@ -1006,6 +1043,7 @@ def cmd_ask(args):
                 "site": source.get("site"),
                 "warehouse": source.get("warehouse"),
                 "hostname": source.get("hostname"),
+                "dex_score": source.get("dex_score"),
                 "stage": source.get("stage"),
             }
         )

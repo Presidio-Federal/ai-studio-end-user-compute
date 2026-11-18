@@ -22,7 +22,11 @@ One computer by serial. The detail sections are GENERAL, HARDWARE, OPERATING_SYS
 
 ## `nexthink_nql_execute`
 
-`query_id` is `#mcp_device_lookup`. `parameters` are `device_name` the hostname and `user_name` `*`. A returned row adds Nexthink on `euc_sources`. It does not change the site or the request.
+Two calls, both before `elasticsearch_bulk` or `elasticsearch_update`. `device_name` is the Jamf hostname. Do not pass `*`.
+
+`#mcp_device_lookup` takes `device_name` and `user_name` `*`. A returned row adds Nexthink on `euc_sources`. It does not carry the DEX score.
+
+`#mcp_device_vitals` takes `device_name` only. `dex_score` is the column `dex_score`, `dex.score`, or `score`. That value is written on the `euc_operations` document. It does not change the site or the request.
 
 ## `elasticsearch_search`
 

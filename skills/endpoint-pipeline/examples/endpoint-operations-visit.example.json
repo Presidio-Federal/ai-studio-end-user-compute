@@ -26,6 +26,7 @@
       "os": "15.0",
       "last_check_in": "2026-01-01T00:00:00Z",
       "management_state": "managed",
+      "dex_score": "70",
       "sources": ["ServiceNow", "Jamf"],
       "note": "Baseline."
     }

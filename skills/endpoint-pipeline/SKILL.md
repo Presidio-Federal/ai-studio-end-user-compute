@@ -1,7 +1,7 @@
 ---
 name: endpoint-pipeline
-version: "1.0.0"
-description: "v1.0.0 — Copy EUC demo computers onto euc_operations. The serial is the document id."
+version: "1.1.0"
+description: "v1.1.0 — Copy EUC demo computers onto euc_operations, including the DEX score."
 ---
 
 # Endpoint pipeline
@@ -12,7 +12,9 @@ ServiceNow is the asset. The estate is `alm_hardware` for company Disney EUC, `u
 
 `request` is `u_order_number`. `site` and `target_site` are the request `u_site`. `warehouse` and `target_warehouse` are the request `u_warehouse`. `location` is that site's coordinates when both exist. Do not take the site from a warehouse city, a stockroom, or a guessed address.
 
-`stage` is `in_service`. The first copy of missing serials is one `elasticsearch_bulk`. A later copy uses `elasticsearch_update` only when the source and the document differ. Fields left out of the update stay. Jamf and Intune supply hostname, user, last check-in, OS, and management state. Nexthink is recorded when the hostname lookup returns a row. Those feeds do not replace the serial, the request, the site, or the warehouse. A feed that names the serial is added on `euc_sources`. The other names stay.
+`stage` is `in_service`. Jamf and Intune supply hostname, user, last check-in, OS, and management state. Nexthink `#mcp_device_vitals` supplies `dex_score` for that hostname before any Elasticsearch write. `#mcp_device_lookup` only records that Nexthink named the device. Those feeds do not replace the serial, the request, the site, or the warehouse. A feed that names the serial is added on `euc_sources`. The other names stay.
+
+The first copy of missing serials is one `elasticsearch_bulk`. A later copy uses `elasticsearch_update` only when the source and the document differ. Fields left out of the update stay. `dex_score` is on the document when vitals returned it. A missing score is left off, so a score already stored stays.
 
 A question reads `euc_operations`. A sync copies what ServiceNow already has. It does not enroll a device, ship one, or install one.
 
