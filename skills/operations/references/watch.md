@@ -28,7 +28,7 @@ If stderr says `hai_mcp unavailable`, stop. Do not collect by hand.
 
 ## Treat
 
-Only when the person names a serial and authorizes a fix, or the API line is ticket-authorized. Read `tickets/metadata.json` and the investigation stamp first. If `recommended_treat` is not `disk`, stop. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths.
+Only when the person names a serial and authorizes a fix, or the API line is ticket-authorized. Read `tickets/metadata.json` and the investigation stamp first. If `recommended_treat` is `disk`, use `MCP-Remediate-Disk`. If it is `crash`, use `MCP-Remediate-Crash`. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths. The script picks the live `computer_id` for that serial.
 
 ```text
 python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "<serial>" --group "MCP-Remediate-Disk"

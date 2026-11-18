@@ -1,0 +1,19 @@
+{
+  "keys": [],
+  "schema": "endpoint-operations-metadata/v1",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "source_agent": "endpoint-pipeline",
+  "evidence_ref": "endpoint-operations/2026-01-01T00-00-00Z.json",
+  "last_visit_id": "2026-01-01T00-00-00Z",
+  "last_collected_at": "2026-01-01T00:00:00Z",
+  "baseline_ref": "endpoint-operations/2026-01-01T00-00-00Z.json",
+  "status": "ok",
+  "coverage": "complete",
+  "delta": "first",
+  "devices": 1,
+  "written": 1,
+  "subjective": "Copy EUC demo computers onto euc_operations.",
+  "objective": "1 computers in scope. 1 written. 0 failed. Proof endpoint-operations/2026-01-01T00-00-00Z.json.",
+  "assessment": "The endpoint copy matches ServiceNow.",
+  "plan": "The next copy writes a serial only when the source and the document differ."
+}

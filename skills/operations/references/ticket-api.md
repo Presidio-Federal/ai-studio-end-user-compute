@@ -37,9 +37,12 @@ confirm. Do not collect the whole fleet first.
 4. If `recommended_treat` is `disk`, `treat` with `--serial` and `--group`
    `MCP-Remediate-Disk`.
 5. If `recommended_treat` is `crash`, `treat` with `--serial` and `--group`
-   `MCP-Remediate-Crash`. That is the same kind of fix as disk: add the Mac
-   to the static group and blank-push it so the Jamf policy runs. Do not use
-   a Nexthink remote action for this. Those remediation scripts are Windows-only.
+   `MCP-Remediate-Crash`. That is the same kind of fix as disk: add the live
+   Jamf computer for that serial and blank-push it so the Jamf policy runs.
+   Do not pass `serial` into the group write when more than one computer
+   shares it. Do not use a Nexthink remote action for this. Those
+   remediation scripts are Windows-only. If `MCP-Remediate-Crash` is not a
+   static group in Jamf, stop. Do not substitute `MCP-Remediate-Disk`.
 6. `notify` `#mcp_ops_update` after a fix has started.
 7. `close` only after that fix. The script resolves the INC only when the
    short description starts with `EUC_DEMO` and that serial is an EUC demo

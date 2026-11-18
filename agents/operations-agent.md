@@ -1,11 +1,11 @@
 ---
 name: operations-agent
-version: "0.9.0"
+version: "0.9.1"
 ---
 
 # Operations
 
-Version 0.9.0.
+Version 0.9.1.
 
 ## Identity
 

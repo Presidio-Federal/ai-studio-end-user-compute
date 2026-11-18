@@ -1,7 +1,7 @@
 ---
 name: workspace-handoff
-description: "v0.6.0 — Workspace catalog of who writes each path. Lifecycle nurses own a folder. Demo writes each campaign send."
-version: "0.6.0"
+description: "v0.7.0 — Workspace catalog of who writes each path, including the endpoint copy onto euc_operations."
+version: "0.7.0"
 ---
 
 # Workspace handoff
@@ -39,6 +39,8 @@ paths.
 | `operations/metadata.json` | metadata | Operations | `operations` `schemas/operations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. Counts are fine. The device rows are not. |
 | `demo/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Demo | `demo` `schemas/demo-visit.schema.json` | One campaign send: NQL id, user SID, hostname, serial, request id, status. `keys` use `device:` for the chassis serial. A later stamp is only that send when the request id or status changed. |
 | `demo/metadata.json` | metadata | Demo | `demo` `schemas/demo-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `campaign` is the NQL id. The device row is not here. |
+| `endpoint-operations/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Endpoint pipeline | `endpoint-pipeline` `schemas/endpoint-operations-visit.schema.json` | Computers copied onto `euc_operations`: serial, request, site, warehouse, hostname. `keys` use `device:` for the chassis serial. A later stamp is only computers that changed. A part is not a row. |
+| `endpoint-operations/metadata.json` | metadata | Endpoint pipeline | `endpoint-pipeline` `schemas/endpoint-operations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. Counts are fine. The device rows are not. |
 
 ## Writing
 

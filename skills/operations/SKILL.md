@@ -1,7 +1,7 @@
 ---
 name: operations
-version: "0.9.0"
-description: "v0.9.0 — Ticket-authorized disk or crash fix via a Jamf group, then resolve the INC."
+version: "0.9.1"
+description: "v0.9.1 — Ticket-authorized disk or crash fix via a Jamf group, then resolve the INC."
 ---
 
 # Operations
@@ -49,7 +49,7 @@ python3 <copied script path> treat --workspace <copied file_explorer directory> 
 python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "<serial>" --group "MCP-Remediate-Disk" --action remove
 ```
 
-The script adds or removes that computer on the group, then `BLANK_PUSH` on add. It does not write a stamp. Collect again after check-in to record whether the issue moved.
+The script resolves the live Jamf `computer_id` for that serial, adds or removes it on the group, then `BLANK_PUSH` on add. It does not write a stamp. A missing static group is an error. Collect again after check-in to record whether the issue moved.
 
 ## Notify
 

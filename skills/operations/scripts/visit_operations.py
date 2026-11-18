@@ -405,6 +405,58 @@ def rows_from(payload):
     return []
 
 
+def first(*values):
+    for value in values:
+        if value not in (None, ""):
+            return value
+    return None
+
+
+def jamf_section(raw, name):
+    value = raw.get(name) if isinstance(raw, dict) else None
+    return value if isinstance(value, dict) else {}
+
+
+def jamf_row(raw):
+    general = jamf_section(raw, "general")
+    hardware = jamf_section(raw, "hardware")
+    located = jamf_section(raw, "userAndLocation")
+    remote = jamf_section(general, "remoteManagement")
+    return {
+        "id": blank(first(raw.get("id"), general.get("id"))),
+        "name": blank(first(general.get("name"), raw.get("name"))) or "",
+        "serial": blank(first(raw.get("serial"), hardware.get("serialNumber"), general.get("serialNumber"))),
+        "user": blank(first(raw.get("username"), located.get("username"))),
+        "managed": as_bool(first(raw.get("managed"), remote.get("managed"), general.get("managed"))),
+        "last_contact": blank(
+            first(raw.get("lastContactTime"), raw.get("last_contact"), general.get("lastContactTime"))
+        ),
+    }
+
+
+def pick_live_jamf(rows):
+    usable = [row for row in rows if row.get("id")]
+    checked = [row for row in usable if row.get("managed") is True and row.get("last_contact")]
+    if not checked:
+        checked = [row for row in usable if row.get("last_contact")]
+    if not checked:
+        return usable[0] if usable else None
+    checked.sort(key=lambda row: row.get("last_contact") or "")
+    return checked[-1]
+
+
+def find_live_computer(serial, budget):
+    payload, err = call("jamf_find_devices", {"serial": serial, "page": 0, "page_size": 25}, budget)
+    if err:
+        return None, err
+    rows = [jamf_row(raw) for raw in rows_from(payload or {})]
+    rows = [row for row in rows if not row.get("serial") or row.get("serial") == serial]
+    chosen = pick_live_jamf(rows)
+    if chosen is None:
+        return None, "no Jamf computer for that serial"
+    return chosen, None
+
+
 def empty_row(ident):
     return {
         "id": ident,
@@ -589,26 +641,28 @@ def cmd_collect(args):
         elif name:
             jamf_args["name"] = name
         payload = take("jamf_find_devices", jamf_args)
-        jamf_rows = rows_from(payload or {})
+        jamf_rows = [jamf_row(raw) for raw in rows_from(payload or {})]
+        if serial:
+            jamf_rows = [row for row in jamf_rows if not row.get("serial") or row.get("serial") == serial]
+        chosen_jamf = pick_live_jamf(jamf_rows)
         jamf_id = None
-        for raw in jamf_rows:
-            serial_value = blank(raw.get("serial") or (raw.get("hardware") or {}).get("serialNumber"))
-            host = blank(raw.get("name") or (raw.get("general") or {}).get("name")) or ""
+        if chosen_jamf:
+            serial_value = chosen_jamf.get("serial") or serial
+            host = chosen_jamf.get("name") or ""
             ident = serial_value or host or serial or name
-            jamf_id = blank(raw.get("id") or (raw.get("general") or {}).get("id"))
+            jamf_id = chosen_jamf.get("id")
             upsert(
                 estate,
                 ident,
                 name=host,
                 serial=serial_value or serial,
-                user=blank(raw.get("username") or (raw.get("userAndLocation") or {}).get("username")),
+                user=chosen_jamf.get("user"),
                 jamf_id=jamf_id,
-                managed=as_bool(raw.get("managed")),
+                managed=chosen_jamf.get("managed"),
                 source="mdm",
             )
-            break
         if jamf_id or serial:
-            health_args = {"serial": serial} if serial else {"computer_id": jamf_id}
+            health_args = {"computer_id": jamf_id} if jamf_id else {"serial": serial}
             payload = take("jamf_get_device_health", health_args)
             if payload:
                 ident = serial or name
@@ -712,11 +766,20 @@ def cmd_treat(args):
             group_id = blank(raw.get("id"))
             exact = name
             break
-    payload = {"confirm": True, "serial": serial, "action": action}
-    if group_id:
-        payload["group_id"] = group_id
-    else:
-        payload["group_name"] = exact
+    if not group_id:
+        print(json.dumps({"error": f"static group {group} is not in Jamf"}), file=sys.stderr)
+        return 1
+    computer, computer_err = find_live_computer(serial, budget)
+    if computer_err:
+        print(json.dumps({"error": computer_err[:200]}), file=sys.stderr)
+        return 1
+    computer_id = computer["id"]
+    payload = {
+        "confirm": True,
+        "computer_id": computer_id,
+        "action": action,
+        "group_id": group_id,
+    }
     body, err = call("jamf_set_computer_group_membership", payload, budget)
     if err:
         print(json.dumps({"error": err[:200]}), file=sys.stderr)
@@ -724,12 +787,17 @@ def cmd_treat(args):
     push_err = None
     push_body = None
     if action == "add":
-        push_body, push_err = call("jamf_send_mdm_command", {"command": "BLANK_PUSH", "serial": serial}, budget)
+        push_body, push_err = call(
+            "jamf_send_mdm_command",
+            {"command": "BLANK_PUSH", "computer_id": computer_id},
+            budget,
+        )
     reply(
         {
             "plane": "operations",
             "treated": True,
             "serial": serial,
+            "computer_id": computer_id,
             "group": exact,
             "group_id": group_id,
             "action": action,

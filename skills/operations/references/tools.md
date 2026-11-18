@@ -28,13 +28,14 @@ The person must name a serial and authorize the fix. Collect does not treat.
 
 | Tool | Call |
 |------|------|
-| `jamf_list_computer_groups` | `name` is the group substring, `static_only` true. Resolve the exact static group before the write. |
-| `jamf_set_computer_group_membership` | `confirm` true. `group_id` or exact `group_name`. `serial` or `computer_id`. `action` `add` or `remove`. |
-| `jamf_send_mdm_command` | After add: `command` `BLANK_PUSH`, same serial. |
+| `jamf_list_computer_groups` | `name` is the group substring, `static_only` true. Resolve the exact static group before the write. Missing is an error. |
+| `jamf_find_devices` | That serial. When more than one computer matches, pick the managed record with the newest last contact. |
+| `jamf_set_computer_group_membership` | `confirm` true. `group_id` of the exact static group. `computer_id` of that live record, not `serial`. `action` `add` or `remove`. |
+| `jamf_send_mdm_command` | After add: `command` `BLANK_PUSH`, same `computer_id`. |
 
 Disk remediation on this estate uses the static group `MCP-Remediate-Disk`. Do not invent a group. Do not replace the group's membership list. Do not call `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, or `jamf_api_delete`. Those need a path this skill does not supply.
 
-A ticket-authorized crash uses the static group `MCP-Remediate-Crash` the same way: add the serial, then `BLANK_PUSH`. The Jamf policy on that group is the fix. Do not call `nexthink_execute_remote_action` for it.
+A ticket-authorized crash uses the static group `MCP-Remediate-Crash` the same way: add that computer, then `BLANK_PUSH`. The Jamf policy on that group is the fix. Do not call `nexthink_execute_remote_action` for it. If that group is not in Jamf, stop. Do not substitute `MCP-Remediate-Disk`.
 
 ## Open tickets
 

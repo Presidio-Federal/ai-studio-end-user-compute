@@ -1,0 +1,38 @@
+{
+  "keys": ["device:SERIAL123456", "request:REQ0010001", "site:ExampleCity", "warehouse:WH-EXAMPLE"],
+  "schema": "endpoint-operations/v1",
+  "source": "endpoint-operations",
+  "watch_id": "2026-01-01T00-00-00Z",
+  "checked_at": "2026-01-01T00:00:00Z",
+  "ok": true,
+  "status": "ok",
+  "headline": "1 computers. 1 written to euc_operations.",
+  "coverage": "complete",
+  "baseline_ref": null,
+  "vs_prior": {
+    "prior_watch_id": null,
+    "delta": "first",
+    "changed": []
+  },
+  "devices": [
+    {
+      "keys": ["device:SERIAL123456", "request:REQ0010001", "site:ExampleCity", "warehouse:WH-EXAMPLE"],
+      "serial": "SERIAL123456",
+      "request": "REQ0010001",
+      "site": "ExampleCity",
+      "warehouse": "WH-EXAMPLE",
+      "hostname": "mac-example",
+      "user": "user.name",
+      "os": "15.0",
+      "last_check_in": "2026-01-01T00:00:00Z",
+      "management_state": "managed",
+      "sources": ["ServiceNow", "Jamf"],
+      "note": "Baseline."
+    }
+  ],
+  "unchanged": 0,
+  "written": 1,
+  "failed": [],
+  "notes": "Baseline.",
+  "scope": null
+}
