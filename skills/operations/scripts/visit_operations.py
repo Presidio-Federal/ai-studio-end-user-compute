@@ -742,6 +742,89 @@ def cmd_treat(args):
     return 0
 
 
+def incident_text(payload):
+    if not isinstance(payload, dict):
+        return ""
+    for key in ("short_description", "shortDescription"):
+        text = blank(payload.get(key))
+        if text:
+            return text
+    incident = payload.get("incident")
+    if isinstance(incident, dict):
+        return incident_text(incident)
+    return ""
+
+
+def cmd_close(args):
+    ws = resolve_workspace(args.workspace)
+    if ws is None:
+        return 1
+    number = strip_arg(args.incident).upper()
+    serial = strip_arg(args.serial)
+    notes = strip_arg(args.notes) or "EUC demo computer treated. Closing from Operations."
+    if not number.startswith("INC"):
+        print('{"error": "close needs an INC number"}', file=sys.stderr)
+        return 1
+    if serial and not serial.isalnum():
+        print('{"error": "serial must be letters and digits"}', file=sys.stderr)
+        return 1
+    budget = visit_common.Budget(240)
+    incident, err = call("snow_get_incident", {"incident_number": number}, budget)
+    if err:
+        print(json.dumps({"error": err[:200]}), file=sys.stderr)
+        return 1
+    short = incident_text(incident)
+    if not short.upper().startswith("EUC_DEMO"):
+        print('{"error": "incident is not an EUC_DEMO ticket"}', file=sys.stderr)
+        return 1
+    if serial:
+        asset, asset_err = call(
+            "snow_find_assets",
+            {"serial_number": serial, "u_euc_demo": True, "limit": 5},
+            budget,
+        )
+        if asset_err:
+            print(json.dumps({"error": asset_err[:200]}), file=sys.stderr)
+            return 1
+        hits = rows_from(asset or {})
+        if not hits:
+            print('{"error": "serial is not an EUC demo asset"}', file=sys.stderr)
+            return 1
+        category = ""
+        for hit in hits:
+            category = (cell(hit, "model_category", "category") or "").lower()
+            if category:
+                break
+        if category and "computer" not in category:
+            print('{"error": "asset is not a computer"}', file=sys.stderr)
+            return 1
+    updated, update_err = call(
+        "snow_update_incident",
+        {
+            "incident_number": number,
+            "state": "6",
+            "close_code": "Solution provided",
+            "close_notes": notes[:400],
+            "work_notes": "EUC_DEMO closed by Operations.",
+        },
+        budget,
+    )
+    if update_err:
+        print(json.dumps({"error": update_err[:200]}), file=sys.stderr)
+        return 1
+    reply(
+        {
+            "plane": "operations",
+            "closed": True,
+            "incident": number,
+            "serial": serial or None,
+            "state": "resolved",
+            "stamp": None,
+        }
+    )
+    return 0
+
+
 def cmd_annotate(args):
     ws = resolve_workspace(args.workspace)
     if ws is None:
@@ -783,6 +866,12 @@ def main():
     treat.add_argument("--group", required=True)
     treat.add_argument("--action", default="add")
     treat.set_defaults(func=cmd_treat)
+    close = sub.add_parser("close")
+    close.add_argument("--workspace", required=True)
+    close.add_argument("--incident", required=True)
+    close.add_argument("--serial", default="")
+    close.add_argument("--notes", default="")
+    close.set_defaults(func=cmd_close)
     annotate = sub.add_parser("annotate")
     annotate.add_argument("--workspace", required=True)
     annotate.add_argument("--stamp", required=True)

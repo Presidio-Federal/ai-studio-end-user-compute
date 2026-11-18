@@ -34,6 +34,16 @@ The person must name a serial and authorize the fix. Collect does not treat.
 
 Disk remediation on this estate uses the static group `MCP-Remediate-Disk`. Do not invent a group. Do not replace the group's membership list. Do not call `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, or `jamf_api_delete`. Those need a path this skill does not supply.
 
+## Close (only a ticket-authorized EUC computer)
+
+| Tool | Call |
+|------|------|
+| `snow_get_incident` | The INC from the API line. Short description must start with `EUC_DEMO`. |
+| `snow_find_assets` | That serial with `u_euc_demo` true. |
+| `snow_update_incident` | State resolved, close code `Solution provided`. |
+
+A model category that is present and is not Computer is refused. Collect does not close.
+
 ## What the row holds
 
 Experience supplies name, collector UID, BIOS serial, user, last seen, platform, free disk, crash count, DEX score, and custom fields when vitals ran. MDM supplies managed and health severity. Directory/Intune supplies compliance. `device:` is the chassis serial. A hostname is a column.

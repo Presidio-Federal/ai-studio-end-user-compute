@@ -1,7 +1,7 @@
 ---
 name: operations
-version: "0.4.0"
-description: "v0.4.0 — Record in-life devices that are failing. Treats a Mac via a static group when a ticket or the person authorizes it."
+version: "0.5.0"
+description: "v0.5.0 — On an EUC demo computer ticket, collect, treat a disk fault, and resolve the incident."
 ---
 
 # Operations

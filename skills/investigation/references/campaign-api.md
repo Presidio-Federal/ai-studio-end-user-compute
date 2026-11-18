@@ -32,7 +32,7 @@ Content-Type: application/json
 
 ```json
 {
-  "mode": "api",
+  "mode": "fire_and_forget",
   "humanPrompt": "Investigate hostname mac-example. Serial SERIAL123456. The employee answered Fix now. Campaign authorized this visit."
 }
 ```
@@ -41,12 +41,15 @@ The hostname or serial in `humanPrompt` is the chosen endpoint. Collect with
 `--name` or `--serial`. Do not list devices. Do not confirm.
 
 Then start Ticket with one line: open the incident from the investigations
-SOAP. Do not paste the device row. Ticket copies the stamp onto the INC with
-an `EUC_DEMO` marker. Read `tickets/metadata.json`. Then `notify` under
-`execution_type: "mcp_orchestration"`.
+SOAP. Do not paste the device row. Stop that turn. Ticket copies the stamp
+onto the INC with an `EUC_DEMO` marker and replies with the INC number.
+When that reply exists, read `tickets/metadata.json`. Then `notify` under
+`execution_type: "mcp_orchestration"`. Do not read `tickets/metadata.json`
+on the same turn you start Ticket. `File not found` there means Ticket has
+not written. Do not search.
 
 ```text
-python3 <copied script path> notify --workspace <copied file_explorer directory>
+python3 <script path Studio showed> notify --workspace <file_explorer directory Studio showed>
 ```
 
 `notify` reads the INC from `tickets/metadata.json` and sends `#mcp_triage_result`
@@ -97,8 +100,19 @@ Keep:
 
 1. Campaign thinklet `#mcp_fix_consent` (wait for the answer).
 2. Condition: that campaign → `decision` → Is → `fix_now`.
-3. Service/API: POST Studio Investigation, Async, `humanPrompt` with device
-   name or serial.
+3. Service/API: POST Studio Investigation. Method POST. Headers
+   `X-API-Key` and `Content-Type: application/json`. Body:
+
+```json
+{
+  "mode": "fire_and_forget",
+  "humanPrompt": "Investigate hostname {{nx.device.name}}. The employee answered Fix now. Campaign authorized this visit."
+}
+```
+
+   `fire_and_forget` is Async. Do not send `"mode": "api"`. That is Sync
+   and the thinklet will time out. Keep `{{nx.device.name}}` so the agent
+   has one endpoint.
 
 Do **not** add a Wait thinklet unless you have a Wait callback. Studio Async
 already returned HTTP. Investigation telling the user is campaign 2, sent by

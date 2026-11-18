@@ -35,7 +35,7 @@ Content-Type: application/json
 
 ```json
 {
-  "mode": "api",
+  "mode": "fire_and_forget",
   "humanPrompt": "Treat serial SERIAL123456 hostname mac-example. INC INC0010001. Ticket authorized this visit. EUC_DEMO."
 }
 ```
@@ -60,7 +60,7 @@ Use **Flow Designer**. Insert only. An update must not call Studio again.
 6. HTTP Methods → Default POST → HTTP Request → Content:
 
 ```text
-{"mode":"api","humanPrompt":"Treat serial ${serial} hostname ${hostname}. INC ${number}. Ticket authorized this visit. EUC_DEMO."}
+{"mode":"fire_and_forget","humanPrompt":"Treat serial ${serial} hostname ${hostname}. INC ${number}. Ticket authorized this visit. EUC_DEMO."}
 ```
 
 Save. The variable names must match what the Flow passes.
@@ -71,7 +71,9 @@ Save. The variable names must match what the Flow passes.
 2. Trigger: **Created**. Table: `incident`.
 3. Condition (all of):
    - `Short description` `starts with` `EUC_DEMO`
-   - or, if you prefer one field: `Work notes` `contains` `EUC_DEMO`
+   - Configuration item class is Computer, or the hardware model category is Computer
+   - The hardware asset `u_euc_demo` is true
+   `EUC_DEMO` is the project marker. Computer plus `u_euc_demo` is the laptop flag. A network module with the same company does not match.
 4. Do **not** trigger on Update. Treat may comment on the INC later.
 5. Action: REST step, the message above.
 6. Map:

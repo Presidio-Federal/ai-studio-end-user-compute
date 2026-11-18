@@ -7,7 +7,7 @@ Catalog: **`workspace-handoff`**. This skill owns the schema and the example. `s
 | `tickets/<YYYY-MM-DDTHH-MM-SSZ>.json` | First run, and any later run whose incident number or state changed. Never overwritten. Never deleted. A quiet run does not add one. |
 | `tickets/metadata.json` | Every run. SOAP only, plus `number` and `evidence_ref`. The incident row is not here. |
 
-`read_file` filePath is the catalog path (`tickets/metadata.json`, `investigations/metadata.json`). Do not prefix `file_explorer/`. Do not call `get_folder_structure`. Do not pass `Internal directory` to built-in file tools. `File not found` means that file has not been written. Do not search for it.
+`read_file` filePath is the catalog path (`tickets/metadata.json`, `investigations/metadata.json`). Do not prefix `file_explorer/`. Do not call `get_folder_structure`. Do not create a task plan. Do not pass `Internal directory` to built-in file tools. `File not found` on `tickets/metadata.json` is the first run. `File not found` on `investigations/metadata.json` means Investigation has not written. Do not search. `--workspace` is this same tree. Do not `cp` it.
 
 Investigation reads this SOAP note, then replies to the API caller with the ticket number and the concise details. It does not open the incident.
 

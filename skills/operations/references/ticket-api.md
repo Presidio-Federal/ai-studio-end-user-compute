@@ -17,7 +17,7 @@ Content-Type: application/json
 
 ```json
 {
-  "mode": "api",
+  "mode": "fire_and_forget",
   "humanPrompt": "Treat serial SERIAL123456 hostname mac-example. INC INC0010001. Ticket authorized this visit. EUC_DEMO."
 }
 ```
@@ -37,6 +37,15 @@ confirm. Do not collect the whole fleet first.
    `--group` `MCP-Remediate-Disk`.
 4. If `recommended_treat` is `none` or `unknown`, do not treat. Reply that
    this INC has no static-group fix.
+5. After the treat, or when there is nothing to treat, one `execute_command`,
+   `execution_type: "mcp_orchestration"`, `close` with `--incident` and
+   `--serial`. The script resolves the INC only when the short description
+   starts with `EUC_DEMO` and that serial is an EUC demo asset. A model
+   category other than Computer is refused. Close code is `Solution provided`.
+
+```text
+python3 <copied script path> close --workspace <copied file_explorer directory> --incident "INC0010001" --serial "SERIAL123456"
+```
 
 Do not call `snow_create_incident`. Do not send a campaign. Do not run a
 Nexthink remote action.
