@@ -1,7 +1,7 @@
 ---
 name: endpoint-pipeline
-version: "1.1.0"
-description: "v1.1.0 — Copy EUC demo computers onto euc_operations, including the DEX score."
+version: "1.2.0"
+description: "v1.2.0 — Copy EUC demo computers onto euc_operations. A missing order does not drop the serial."
 ---
 
 # Endpoint pipeline
@@ -10,7 +10,7 @@ description: "v1.1.0 — Copy EUC demo computers onto euc_operations, including 
 
 ServiceNow is the asset. The estate is `alm_hardware` for company Disney EUC, `u_euc_demo` true, and model category Computer. A serial with `u_parent_serial` is a part. It is not a document and it is not an `euc_sources` document. The parent lists each part in `components` with the child serial, the part number, and the unit price. The unit price is the third field of `u_components`. Zero stays.
 
-`request` is `u_order_number`. `site` and `target_site` are the request `u_site`. `warehouse` and `target_warehouse` are the request `u_warehouse`. `location` is that site's coordinates when both exist. Do not take the site from a warehouse city, a stockroom, or a guessed address.
+`request` is `u_order_number` when that column is a REQ. A computer with no order is still a document. `request`, `site`, and `warehouse` are left off until ServiceNow has the order. When the order is present, `site` and `target_site` are the request `u_site`, and `warehouse` and `target_warehouse` are the request `u_warehouse`. `location` is that site's coordinates when both exist. Do not take the site from a warehouse city, a stockroom, or a guessed address.
 
 `stage` is `in_service`. Jamf and Intune supply hostname, user, last check-in, OS, and management state. Nexthink `#mcp_device_vitals` supplies `dex_score` for that hostname before any Elasticsearch write. `#mcp_device_lookup` only records that Nexthink named the device. Those feeds do not replace the serial, the request, the site, or the warehouse. A feed that names the serial is added on `euc_sources`. The other names stay.
 

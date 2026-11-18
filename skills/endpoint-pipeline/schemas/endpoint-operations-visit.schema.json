@@ -89,7 +89,7 @@
           "items": { "$ref": "#/$defs/tag" }
         },
         "serial": { "type": "string", "minLength": 1 },
-        "request": { "type": "string", "minLength": 1 },
+        "request": { "type": ["string", "null"] },
         "site": { "type": ["string", "null"] },
         "warehouse": { "type": ["string", "null"] },
         "hostname": { "type": ["string", "null"] },

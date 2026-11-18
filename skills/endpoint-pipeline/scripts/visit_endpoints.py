@@ -487,11 +487,12 @@ def documents(computers, parts, order_rows):
         serial = chassis(asset.get("serial_number"))
         parent = chassis(asset.get("u_parent_serial"))
         req = bare_request(asset.get("u_order_number"))
-        if not serial or not req or serial in seen or parent:
+        if not serial or serial in seen or parent:
             continue
         seen.add(serial)
         order = order_rows.get(req) or {}
-        doc = {"serial": serial, "request": req, "stage": "in_service"}
+        doc = {"serial": serial, "stage": "in_service"}
+        put(doc, "request", req)
         put(doc, "site", order.get("site"))
         put(doc, "target_site", order.get("site"))
         put(doc, "warehouse", order.get("warehouse"))
@@ -867,7 +868,7 @@ def cmd_sync(args):
     numbers = []
     for asset in computers + parts:
         req = bare_request(asset.get("u_order_number"))
-        if req and req not in numbers and not chassis(asset.get("u_parent_serial")):
+        if req and req not in numbers:
             numbers.append(req)
     order_rows, order_err = orders(numbers, budget)
     if order_err:

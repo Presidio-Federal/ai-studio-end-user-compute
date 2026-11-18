@@ -25,6 +25,6 @@ Nurses own a lifecycle role. Tools attached to that nurse are how it collects. T
 | ticket | 0.3.2 | Same catalog as Investigation. `tickets/metadata.json` missing is the first run. Copies the investigation pack onto the INC with `EUC_DEMO`. Company comes from `u_euc_demo` hardware. |
 | operations | 0.9.1 | Ticket-authorized disk uses `MCP-Remediate-Disk`. A crash uses `MCP-Remediate-Crash`. Treat passes `computer_id` when a serial matches more than one Jamf computer. Close only after that group update. |
 | demo | 0.3.0 | `start` triggers workflow `#mcp_investigate_on_consent`. The campaign stays Workflow. Fix now calls Investigation. |
-| endpoint-pipeline | 1.1.0 | Copies Disney EUC computers onto `euc_operations`. `#mcp_device_vitals` supplies `dex_score` before the Elasticsearch write. |
+| endpoint-pipeline | 1.2.0 | A demo computer with no `u_order_number` is still copied. Request, site, and warehouse stay off until ServiceNow has the order. |
 
 Refresh and retirement are the next roles. They are not in the catalog yet.
