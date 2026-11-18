@@ -31,21 +31,28 @@ confirm. Do not collect the whole fleet first.
    not written. Stop.
 2. `read_file` `investigations/metadata.json`, then the stamp `evidence_ref`
    names. That row has `recommended_treat`, serial, hostname, collector UID,
-   disk, and crashes.
-3. If `recommended_treat` is `disk`, one `execute_command`,
-   `execution_type: "mcp_orchestration"`, `treat` with `--serial` and
-   `--group` `MCP-Remediate-Disk`.
-4. If `recommended_treat` is `none` or `unknown`, do not treat. Reply that
+   disk, crashes, and `user_sid`.
+3. `notify` `#mcp_ops_working` with `--details` one sentence. Same
+   `execute_command` / `mcp_orchestration` paths as collect.
+4. If `recommended_treat` is `disk`, `treat` with `--serial` and `--group`
+   `MCP-Remediate-Disk`.
+5. If `recommended_treat` is `none` or `unknown`, do not treat. Reply that
    this INC has no static-group fix.
-5. After the treat, or when there is nothing to treat, one `execute_command`,
-   `execution_type: "mcp_orchestration"`, `close` with `--incident` and
-   `--serial`. The script resolves the INC only when the short description
-   starts with `EUC_DEMO` and that serial is an EUC demo asset. A model
-   category other than Computer is refused. Close code is `Solution provided`.
+6. `notify` `#mcp_ops_update` while the INC is still open.
+7. `close` with `--incident` and `--serial`. The script resolves the INC
+   only when the short description starts with `EUC_DEMO` and that serial
+   is an EUC demo asset. A model category other than Computer is refused.
+   Close code is `Solution provided`.
+8. `notify` `#mcp_ops_closed`.
 
 ```text
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_working" --details "Operations is treating disk on this Mac."
+python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "SERIAL123456" --group "MCP-Remediate-Disk"
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_update" --details "The disk group was updated. The ticket is still open."
 python3 <copied script path> close --workspace <copied file_explorer directory> --incident "INC0010001" --serial "SERIAL123456"
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_closed" --details "The disk treat finished."
 ```
 
-Do not call `snow_create_incident`. Do not send a campaign. Do not run a
-Nexthink remote action.
+Do not call `snow_create_incident`. Do not run a Nexthink remote action.
+Create the three campaigns with `references/campaigns.md` before the first
+send. One user SID. Skip the send when that SID is missing.

@@ -54,8 +54,9 @@ Use **Flow Designer**. Insert only. An update must not call Studio again.
 3. Endpoint: `https://studio.presidio.ai/agents/api/v1/channels/agents`.
 4. Authentication: none. The header carries the key.
 5. HTTP Request → HTTP Headers:
-   - `X-API-Key` = the Operations agent key (put it on a credential or a
-     system property, not in the Flow screenshot).
+   - `X-API-Key` = the Operations key stored as `OPS_AGENT_KEY`. Put that
+     value on a ServiceNow credential or system property. Do not paste it
+     into the Flow or into this repo.
    - `Content-Type` = `application/json`.
 6. HTTP Methods → Default POST → HTTP Request → Content:
 
@@ -69,11 +70,10 @@ Save. The variable names must match what the Flow passes.
 
 1. Flow Designer → New flow. Name: `EUC_DEMO ticket to Operations`.
 2. Trigger: **Created**. Table: `incident`.
-3. Condition (all of):
+3. Condition:
    - `Short description` `starts with` `EUC_DEMO`
-   - Configuration item class is Computer, or the hardware model category is Computer
-   - The hardware asset `u_euc_demo` is true
-   `EUC_DEMO` is the project marker. Computer plus `u_euc_demo` is the laptop flag. A network module with the same company does not match.
+   - `Work notes` `contains` `serial=`
+   The agent-built incidents carry that `serial=` pack. Older `EUC_DEMO` rows are password and dispatch samples and do not. Do not fire on those. Do not require Configuration item. The agent-built INC has no CI today.
 4. Do **not** trigger on Update. Treat may comment on the INC later.
 5. Action: REST step, the message above.
 6. Map:

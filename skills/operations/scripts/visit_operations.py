@@ -825,6 +825,89 @@ def cmd_close(args):
     return 0
 
 
+OPS_CAMPAIGNS = {
+    "#mcp_ops_working": "Operations is on this endpoint.",
+    "#mcp_ops_update": "A remediation step finished. The ticket is still open.",
+    "#mcp_ops_closed": "The incident is resolved.",
+}
+
+
+def investigation_sid(ws):
+    meta = visit_common.load_json(ws, "investigations/metadata.json")
+    if not isinstance(meta, dict) or not meta.get("evidence_ref"):
+        return None
+    stamp = visit_common.load_json(ws, meta["evidence_ref"])
+    devices = (stamp or {}).get("devices") if isinstance(stamp, dict) else None
+    if isinstance(devices, list) and devices and isinstance(devices[0], dict):
+        return blank(devices[0].get("user_sid"))
+    return None
+
+
+def cmd_notify(args):
+    ws = resolve_workspace(args.workspace)
+    if ws is None:
+        return 1
+    campaign = strip_arg(args.campaign) or ""
+    if campaign and not campaign.startswith("#"):
+        campaign = f"#{campaign}"
+    if campaign not in OPS_CAMPAIGNS:
+        print('{"error": "campaign must be #mcp_ops_working, #mcp_ops_update, or #mcp_ops_closed"}', file=sys.stderr)
+        return 1
+    tickets = visit_common.load_json(ws, "tickets/metadata.json")
+    number = strip_arg(args.incident).upper() if strip_arg(args.incident) else None
+    if not number and isinstance(tickets, dict):
+        number = blank(tickets.get("number"))
+    if number:
+        number = number.upper()
+    if not number or not number.startswith("INC"):
+        print('{"error": "notify needs an INC number"}', file=sys.stderr)
+        return 1
+    details = sentence(
+        strip_arg(args.details)
+        or (blank(tickets.get("objective")) if isinstance(tickets, dict) else None)
+        or OPS_CAMPAIGNS[campaign]
+    )
+    user_sid = investigation_sid(ws)
+    if user_sid and (user_sid == "*" or "," in user_sid or " " in user_sid):
+        print('{"error": "user_sid on the stamp is not a single SID"}', file=sys.stderr)
+        return 1
+    campaign_status = "skipped"
+    if user_sid:
+        budget = visit_common.Budget(240)
+        _body, err = optional(
+            "nexthink_trigger_campaign",
+            {
+                "campaign_nql_id": campaign,
+                "user_sids": [user_sid],
+                "parameters": {"ticket_number": number, "details": details},
+                "approved": True,
+            },
+            budget,
+        )
+        if err == "unattached":
+            campaign_status = "unattached"
+            print('{"warning": "nexthink_trigger_campaign is not attached"}', file=sys.stderr)
+        elif err:
+            campaign_status = "error"
+            print(json.dumps({"warning": err[:200]}), file=sys.stderr)
+        else:
+            campaign_status = "sent"
+    else:
+        print('{"warning": "no user_sid on the investigation stamp; ops campaign not sent"}', file=sys.stderr)
+    reply(
+        {
+            "plane": "operations",
+            "number": number,
+            "details": details,
+            "campaign": campaign,
+            "campaign_status": campaign_status,
+            "user_sid": user_sid,
+            "stamp": None,
+        }
+    )
+    return 0
+
+
 def cmd_annotate(args):
     ws = resolve_workspace(args.workspace)
     if ws is None:
@@ -872,6 +955,12 @@ def main():
     close.add_argument("--serial", default="")
     close.add_argument("--notes", default="")
     close.set_defaults(func=cmd_close)
+    notify = sub.add_parser("notify")
+    notify.add_argument("--workspace", required=True)
+    notify.add_argument("--campaign", required=True)
+    notify.add_argument("--incident", default="")
+    notify.add_argument("--details", default="")
+    notify.set_defaults(func=cmd_notify)
     annotate = sub.add_parser("annotate")
     annotate.add_argument("--workspace", required=True)
     annotate.add_argument("--stamp", required=True)

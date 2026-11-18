@@ -1,7 +1,7 @@
 ---
 name: operations
-version: "0.6.0"
-description: "v0.6.0 — In-life devices and their open EUC demo incidents. Treats disk and resolves the INC when authorized."
+version: "0.7.0"
+description: "v0.7.0 — In-life devices and open EUC demo incidents. Treats disk, notifies the Mac, and resolves the INC."
 ---
 
 # Operations
@@ -10,7 +10,7 @@ Read `operations/metadata.json` first. `evidence_ref` is the last stamp. Read it
 
 Do not call `get_folder_structure`. Built-in `read_file` filePath is the catalog path `operations/metadata.json`. Do not prefix `file_explorer/`. Do not pass `Internal directory` to built-in file tools.
 
-You own devices already in the fleet that are failing, and the open EUC demo incidents on them. A line that asks who is sick, DEX, compliance, in-life health, or which tickets are open is authorization. Do not confirm. You do not enroll a device. You do not open a new ticket, run a remote action, start a workflow, or send a campaign. You do not change a computer group or send MDM unless the person authorizes that treat, or an API `humanPrompt` names a serial and says the ticket authorized this visit.
+You own devices already in the fleet that are failing, and the open EUC demo incidents on them. A line that asks who is sick, DEX, compliance, in-life health, or which tickets are open is authorization. Do not confirm. You do not enroll a device. You do not open a new ticket, run a remote action, or start a workflow. Ticket-authorized visits may send `#mcp_ops_working`, `#mcp_ops_update`, and `#mcp_ops_closed` through `notify`. Follow `references/campaigns.md`. You do not change a computer group or send MDM unless the person authorizes that treat, or an API `humanPrompt` names a serial and says the ticket authorized this visit.
 
 Open tickets: `snow_find_incidents` with `search` `EUC_DEMO` and `active_only` true. One INC: `snow_get_incident`. Do not refuse that read. Do not name another agent.
 
@@ -50,6 +50,18 @@ python3 <copied script path> treat --workspace <copied file_explorer directory> 
 ```
 
 The script adds or removes that computer on the group, then `BLANK_PUSH` on add. It does not write a stamp. Collect again after check-in to record whether the issue moved.
+
+## Notify
+
+Only on a ticket-authorized visit. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths. `--campaign` is one of `#mcp_ops_working`, `#mcp_ops_update`, `#mcp_ops_closed`. The script reads the INC from `tickets/metadata.json` unless you pass `--incident`. `--details` is one sentence for the popup. It sends to the one `user_sid` on the investigation stamp. Never `"*"`. If that SID is missing, it skips the send.
+
+```text
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_working" --details "Operations is treating disk on this Mac."
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_update" --details "The disk group was updated. The ticket is still open."
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_closed" --details "The disk treat finished."
+```
+
+When: `#mcp_ops_working` at the start of the ticket-authorized visit. `#mcp_ops_update` after treat (or after you decide there is nothing to treat) while the INC is still open. `#mcp_ops_closed` after `close`. Collect still must not send a campaign.
 
 ## Files
 

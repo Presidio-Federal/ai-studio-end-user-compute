@@ -36,3 +36,13 @@ python3 <copied script path> treat --workspace <copied file_explorer directory> 
 ```
 
 `--group` is the exact static group name. The script does not write a stamp. Collect again after check-in.
+
+## Notify
+
+Ticket-authorized only. Same copied paths. Campaigns must already be Published with trigger API. See `references/campaigns.md`.
+
+```text
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_working" --details "<one sentence>"
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_update" --details "<one sentence>"
+python3 <copied script path> notify --workspace <copied file_explorer directory> --campaign "#mcp_ops_closed" --details "<one sentence>"
+```

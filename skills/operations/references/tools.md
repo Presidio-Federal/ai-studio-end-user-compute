@@ -55,6 +55,14 @@ Do not call `snow_create_incident` for this question.
 
 A model category that is present and is not Computer is refused. Collect does not close.
 
+## Notify (only a ticket-authorized visit)
+
+| Tool | Call |
+|------|------|
+| `nexthink_trigger_campaign` | `approved` true. `campaign_nql_id` `#mcp_ops_working`, `#mcp_ops_update`, or `#mcp_ops_closed`. `user_sids` is a one-item list from the investigation stamp. Parameters `ticket_number` and `details`. Never `"*"`. |
+
+The prompt does not call this tool. `scripts/visit_operations.py notify` does. Collect still must not send a campaign. Unattached is a skip, not a halt.
+
 ## What the row holds
 
 Experience supplies name, collector UID, BIOS serial, user, last seen, platform, free disk, crash count, DEX score, and custom fields when vitals ran. MDM supplies managed and health severity. Directory/Intune supplies compliance. `device:` is the chassis serial. A hostname is a column.
