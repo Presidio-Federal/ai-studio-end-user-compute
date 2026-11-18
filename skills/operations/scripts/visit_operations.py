@@ -395,7 +395,7 @@ def nql_rows(payload):
 def rows_from(payload):
     if not isinstance(payload, dict):
         return []
-    for key in ("devices", "results", "computers", "value"):
+    for key in ("devices", "results", "computers", "assets", "value"):
         value = payload.get(key)
         if isinstance(value, list):
             return [item for item in value if isinstance(item, dict)]

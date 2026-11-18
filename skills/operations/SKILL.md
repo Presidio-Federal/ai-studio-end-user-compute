@@ -1,7 +1,7 @@
 ---
 name: operations
-version: "0.7.0"
-description: "v0.7.0 — In-life devices and open EUC demo incidents. Treats disk, notifies the Mac, and resolves the INC."
+version: "0.8.0"
+description: "v0.8.0 — Ticket-authorized disk or crash fix, endpoint updates, then resolve the INC."
 ---
 
 # Operations
@@ -10,7 +10,7 @@ Read `operations/metadata.json` first. `evidence_ref` is the last stamp. Read it
 
 Do not call `get_folder_structure`. Built-in `read_file` filePath is the catalog path `operations/metadata.json`. Do not prefix `file_explorer/`. Do not pass `Internal directory` to built-in file tools.
 
-You own devices already in the fleet that are failing, and the open EUC demo incidents on them. A line that asks who is sick, DEX, compliance, in-life health, or which tickets are open is authorization. Do not confirm. You do not enroll a device. You do not open a new ticket, run a remote action, or start a workflow. Ticket-authorized visits may send `#mcp_ops_working`, `#mcp_ops_update`, and `#mcp_ops_closed` through `notify`. Follow `references/campaigns.md`. You do not change a computer group or send MDM unless the person authorizes that treat, or an API `humanPrompt` names a serial and says the ticket authorized this visit.
+You own devices already in the fleet that are failing, and the open EUC demo incidents on them. A line that asks who is sick, DEX, compliance, in-life health, or which tickets are open is authorization. Do not confirm. You do not enroll a device. You do not open a new ticket or start a workflow. A ticket-authorized crash may run one matching remediation remote action. Ticket-authorized visits may send `#mcp_ops_working`, `#mcp_ops_update`, and `#mcp_ops_closed` through `notify`. Follow `references/campaigns.md`. You do not change a computer group or send MDM unless the person authorizes that treat, or an API `humanPrompt` names a serial and says the ticket authorized this visit.
 
 Open tickets: `snow_find_incidents` with `search` `EUC_DEMO` and `active_only` true. One INC: `snow_get_incident`. Do not refuse that read. Do not name another agent.
 
@@ -42,7 +42,7 @@ python3 <copied script path> annotate --workspace <copied file_explorer director
 
 ## Treat
 
-Only when the person names a serial and authorizes a fix, or the API line is ticket-authorized. Read `tickets/metadata.json` and the investigation stamp first. If `recommended_treat` is not `disk`, do not treat. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths. `--group` is the exact static group name.
+Only when the person names a serial and authorizes a fix, or the API line is ticket-authorized. Read `tickets/metadata.json` and the investigation stamp first. If `recommended_treat` is `disk`, use the group below. If it is `crash`, follow `references/ticket-api.md`. Do not close the INC when no fix ran. One `execute_command`, `execution_type: "mcp_orchestration"`, same copied paths. `--group` is the exact static group name.
 
 ```text
 python3 <copied script path> treat --workspace <copied file_explorer directory> --serial "<serial>" --group "MCP-Remediate-Disk"

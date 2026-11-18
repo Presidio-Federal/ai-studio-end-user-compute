@@ -34,6 +34,8 @@ The person must name a serial and authorize the fix. Collect does not treat.
 
 Disk remediation on this estate uses the static group `MCP-Remediate-Disk`. Do not invent a group. Do not replace the group's membership list. Do not call `jamf_api_get`, `jamf_api_post`, `jamf_api_put`, or `jamf_api_delete`. Those need a path this skill does not supply.
 
+A ticket-authorized crash uses `nexthink_list_remote_actions`, `nexthink_describe_remote_action`, and `nexthink_execute_remote_action` with `approved` true. Skip an action whose platform does not include this device. Do not close the INC if none ran.
+
 ## Open tickets
 
 The agent calls these. Collect does not.

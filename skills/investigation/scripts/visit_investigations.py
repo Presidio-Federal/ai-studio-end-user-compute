@@ -719,7 +719,9 @@ def classify(jamf_row, nexthink_row, health_rows, crash_rows, health_err, lookup
 def recommended_treat(issue, free_disk, signals):
     if issue == "disk" or disk_low(free_disk, signals):
         return "disk"
-    if issue in ("application_crashes", "experience_recorded", "no_signal"):
+    if issue == "application_crashes":
+        return "crash"
+    if issue in ("experience_recorded", "no_signal"):
         return "none"
     return "unknown"
 

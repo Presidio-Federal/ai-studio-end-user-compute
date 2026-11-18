@@ -1,7 +1,7 @@
 ---
 name: investigation
-version: "0.14.0"
-description: "v0.14.0 — Investigate one endpoint and open the EUC_DEMO incident in the same visit. Then notify the employee."
+version: "0.15.0"
+description: "v0.15.0 — Investigate, open the EUC_DEMO incident, and mark a crash as a crash fix."
 ---
 
 # Investigation

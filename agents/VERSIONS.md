@@ -10,7 +10,7 @@ Nurses own a lifecycle role. Tools attached to that nurse are how it collects. T
 | jamf-inventory-agent | 0.2.0 | MiniMax |
 | investigation-agent | 0.14.0 | MiniMax |
 | ticket-agent | 0.3.2 | MiniMax |
-| operations-agent | 0.7.0 | MiniMax |
+| operations-agent | 0.8.0 | MiniMax |
 | demo-agent | 0.3.0 | MiniMax |
 
 ## Skills
@@ -20,9 +20,9 @@ Nurses own a lifecycle role. Tools attached to that nurse are how it collects. T
 | workspace-handoff | 0.6.0 | Catalog for onboarding, Jamf inventory, investigations, tickets, operations, and demo stamps plus SOAP notes. Visit helpers live in `scripts/visit_common.py`. |
 | onboarding | 0.3.0 | Enrollment into MDM. Collect is read-only. Jamf 404 is a gap, not an unattached tool. Assigns a PreStage only when authorized. |
 | jamf-inventory | 0.2.0 | Whether a Jamf computer exists, who it belongs to, and its management level. |
-| investigation | 0.14.0 | `collect` investigates and opens the EUC_DEMO incident in the same command, then `notify` sends `#mcp_triage_result`. No Ticket subagent. |
+| investigation | 0.15.0 | `collect` opens the EUC_DEMO incident. A crash sets `recommended_treat` to `crash`, not `none`. |
 | ticket | 0.3.2 | Same catalog as Investigation. `tickets/metadata.json` missing is the first run. Copies the investigation pack onto the INC with `EUC_DEMO`. Company comes from `u_euc_demo` hardware. |
-| operations | 0.7.0 | Ticket-authorized: `notify` working / update / closed to one user SID, disk treat, then resolve the INC. Campaigns are API `#mcp_ops_working`, `#mcp_ops_update`, `#mcp_ops_closed`. |
+| operations | 0.8.0 | Ticket-authorized disk group or one matching crash remote action. Close only after a fix. |
 | demo | 0.3.0 | `start` triggers workflow `#mcp_investigate_on_consent`. The campaign stays Workflow. Fix now calls Investigation. |
 
 Refresh and retirement are the next roles. They are not in the catalog yet.

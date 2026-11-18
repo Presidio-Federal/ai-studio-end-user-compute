@@ -70,10 +70,7 @@ Save. The variable names must match what the Flow passes.
 
 1. Flow Designer → New flow. Name: `EUC_DEMO ticket to Operations`.
 2. Trigger: **Created**. Table: `incident`.
-3. Condition:
-   - `Short description` `starts with` `EUC_DEMO`
-   - `Work notes` `contains` `serial=`
-   The agent-built incidents carry that `serial=` pack. Older `EUC_DEMO` rows are password and dispatch samples and do not. Do not fire on those. Do not require Configuration item. The agent-built INC has no CI today.
+3. The live trigger is business rule `EUC_DEMO ticket to Operations`. It runs only when `u_euc_agent` is true. A before-insert rule sets that flag, `correlation_id` (serial), and `u_device_name` (hostname) from the agent work-note pack. Do not match on description.
 4. Do **not** trigger on Update. Treat may comment on the INC later.
 5. Action: REST step, the message above.
 6. Map:
