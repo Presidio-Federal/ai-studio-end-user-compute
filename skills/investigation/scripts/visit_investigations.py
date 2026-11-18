@@ -865,9 +865,32 @@ def cmd_collect(args):
         "assessment": sentence(
             f"Issue {issue} on {device['name'] or 'unnamed'}. Ticket copies this stamp onto the INC."
         ),
-        "plan": sentence("Ticket opens the incident from this SOAP. This visit does not."),
+        "plan": sentence("This visit opens the EUC_DEMO incident from this record."),
     }
-    return save_record(ws, record, soap)
+    saved = save_record(ws, record, soap)
+    if saved != 0:
+        return saved
+    if issue == "unknown":
+        return saved
+    opened = open_ticket(ws, serial_value or "")
+    if opened != 0:
+        print('{"warning": "investigation saved, ticket was not opened"}', file=sys.stderr)
+        return saved
+    noted = cmd_notify(argparse.Namespace(workspace=str(ws), campaign="#mcp_triage_result"))
+    return saved if noted != 0 else 0
+
+
+def open_ticket(ws, serial):
+    path = Path(__file__).resolve().parents[2] / "ticket" / "scripts" / "visit_tickets.py"
+    if not path.is_file():
+        print('{"error": "ticket skill is not attached"}', file=sys.stderr)
+        return 1
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("visit_tickets", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.cmd_open(argparse.Namespace(workspace=str(ws), serial=serial or ""))
 
 
 def cmd_annotate(args):

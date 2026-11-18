@@ -7,7 +7,7 @@ Flow:
 
 1. Campaign `#mcp_fix_consent` asks Fix now / Later.
 2. On `fix_now`, the workflow POSTs Investigation (Async).
-3. Investigation collects, Ticket opens the INC, Investigation `notify`
+3. Investigation collects, opens the INC in that same command, then `notify`
    sends campaign `#mcp_triage_result` with `ticket_number` and `details`.
 4. Engage shows that second popup.
 
@@ -20,9 +20,7 @@ On the Investigation agent: Channels → API → Generate API Key. Use **Async**
 The key selects this agent. Sync waits for the whole visit and will time out
 the Nexthink thinklet.
 
-Attach Ticket as a **subagent** of Investigation. Ticket is the only writer of
-`tickets/`. Investigation does not call `snow_`. Investigation `notify` may
-call `nexthink_trigger_campaign`.
+Do not attach Ticket as a subagent. Investigation runs the ticket open in the same `collect`. `tickets/` is still that script's chart. Investigation `notify` may call `nexthink_trigger_campaign`.
 
 ```text
 POST https://studio.presidio.ai/agents/api/v1/channels/agents
@@ -40,17 +38,7 @@ Content-Type: application/json
 The hostname or serial in `humanPrompt` is the chosen endpoint. Collect with
 `--name` or `--serial`. Do not list devices. Do not confirm.
 
-Then start Ticket with one line: open the incident from the investigations
-SOAP. Do not paste the device row. Stop that turn. Ticket copies the stamp
-onto the INC with an `EUC_DEMO` marker and replies with the INC number.
-When that reply exists, read `tickets/metadata.json`. Then `notify` under
-`execution_type: "mcp_orchestration"`. Do not read `tickets/metadata.json`
-on the same turn you start Ticket. `File not found` there means Ticket has
-not written. Do not search.
-
-```text
-python3 <script path Studio showed> notify --workspace <file_explorer directory Studio showed>
-```
+`collect` copies the stamp onto the INC with an `EUC_DEMO` marker and then sends `#mcp_triage_result`. Do not start a subagent. Do not stop the turn between the investigation and the INC. Do not run `notify` yourself.
 
 `notify` reads the INC from `tickets/metadata.json` and sends `#mcp_triage_result`
 to **one** user SID: the `user_sid` on that investigation stamp. That is the

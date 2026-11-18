@@ -8,8 +8,4 @@ No endpoint yet: use the list calls in `references/tools.md`. Ask which one. Do 
 
 One endpoint chosen: one `execute_command`, `execution_type: "mcp_orchestration"`, `collect` with `--serial`, `--name`, or `--user`. Then say what the record means. Use `annotate` under `execution_type: "standard"` for that opinion.
 
-Campaign-authorized: after collect, start Ticket, then **stop**. When Ticket has replied with an INC, `read_file` `tickets/metadata.json`, then `notify`. Do not read that file on the same turn you start Ticket.
-
-```text
-python3 <script path Studio showed> notify --workspace <file_explorer directory Studio showed>
-```
+`collect` opens the EUC_DEMO incident and sends `#mcp_triage_result` in that same command. Do not start a subagent. Do not run `notify` yourself.

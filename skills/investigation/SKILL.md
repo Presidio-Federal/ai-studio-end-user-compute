@@ -1,7 +1,7 @@
 ---
 name: investigation
-version: "0.13.0"
-description: "v0.13.0 — Investigate one chosen endpoint. Wait for Ticket's INC, then notify sends the employee campaign."
+version: "0.14.0"
+description: "v0.14.0 — Investigate one endpoint and open the EUC_DEMO incident in the same visit. Then notify the employee."
 ---
 
 # Investigation
@@ -10,9 +10,9 @@ description: "v0.13.0 — Investigate one chosen endpoint. Wait for Ticket's INC
 
 Built-in `read_file` filePath is the catalog path `investigations/metadata.json`. Do not prefix `file_explorer/`. Do not pass `Internal directory` to built-in file tools. That string is only the python path Studio shows for `execute_command`.
 
-A line that asks about an endpoint or its health is authorization. Do not confirm. An API `humanPrompt` that already names a serial, hostname, or username has chosen the endpoint. Collect. You do not open a ticket, send an MDM command, run a remote action, start a workflow, or send a campaign. Ticket opens the incident from this SOAP. After Ticket has **replied** with an INC, `notify` is the reply to the API caller.
+A line that asks about an endpoint or its health is authorization. Do not confirm. An API `humanPrompt` that already names a serial, hostname, or username has chosen the endpoint. Collect. You do not start a subagent. You do not send an MDM command, run a remote action, start a workflow, or send `#mcp_fix_consent`. `collect` opens the EUC_DEMO incident from the record it just wrote, then `notify` sends `#mcp_triage_result`.
 
-The campaign-to-API contract is `references/campaign-api.md`. Ticket copies the stamp onto the INC. The ServiceNow outbound contract is `ticket` `references/snow-api.md`.
+The campaign-to-API contract is `references/campaign-api.md`. The ServiceNow marker is `ticket` `references/snow-api.md`.
 
 ## Before an endpoint is chosen
 
@@ -32,7 +32,7 @@ python3 <script path Studio showed> collect --workspace <file_explorer directory
 python3 <script path Studio showed> collect --workspace <file_explorer directory Studio showed> --user "<username>"
 ```
 
-The script calls Jamf and Nexthink, fills the schema, and writes the stamp and a factual SOAP note. The last stdout line is the result. You then say what it means. If stderr says `hai_mcp unavailable`, stop.
+The script calls Jamf and Nexthink, writes the stamp, opens or reuses the EUC_DEMO incident, and sends `#mcp_triage_result` when it has a user SID. Do not start Ticket. The last stdout line is the result. You then say the endpoint and the ticket number. If stderr says `hai_mcp unavailable`, stop.
 
 To replace the SOAP sentences with your opinion, one `execute_command`, `execution_type: "standard"`, same paths:
 
@@ -41,20 +41,6 @@ python3 <script path Studio showed> annotate --workspace <file_explorer director
 ```
 
 `--stamp` is the summary field `stamp`. Each SOAP argument is one sentence, under 400 characters, with no JSON.
-
-## After a campaign-authorized collect
-
-Do not call `snow_create_incident`. If Ticket is attached as a subagent, start it with one line: open the incident from the investigations SOAP. Do not paste the device row. **Stop this turn.** Do not `read_file` `tickets/metadata.json` on this turn. Do not `notify` on this turn. "Subagent launched" is not a ticket.
-
-When Ticket has replied with an INC number, `read_file` `tickets/metadata.json`. `File not found` means Ticket did not write. Stop. Do not search. Do not list the workspace.
-
-When that SOAP has a `number`, one `execute_command`, `execution_type: "mcp_orchestration"`, same pasted paths:
-
-```text
-python3 <script path Studio showed> notify --workspace <file_explorer directory Studio showed>
-```
-
-`notify` sends `#mcp_triage_result` with `ticket_number` and `details`. The last stdout line is the ticket number. That line is your reply to the API caller. The employee sees campaign 2, not campaign 1 waiting.
 
 ## Files
 
