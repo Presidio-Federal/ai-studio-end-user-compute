@@ -1,0 +1,20 @@
+{
+  "keys": [],
+  "schema": "demo-metadata/v1",
+  "updated_at": "2026-01-01T00:00:00Z",
+  "source_agent": "demo",
+  "evidence_ref": "demo/2026-01-01T00-00-00Z.json",
+  "last_visit_id": "2026-01-01T00-00-00Z",
+  "last_collected_at": "2026-01-01T00:00:00Z",
+  "baseline_ref": "demo/2026-01-01T00-00-00Z.json",
+  "status": "ok",
+  "coverage": "complete",
+  "delta": "first",
+  "devices": 1,
+  "campaign": "#mcp_fix_consent",
+  "campaign_status": "sent",
+  "subjective": "Start the employee campaign for this demo.",
+  "objective": "#mcp_fix_consent sent to mac-example. Proof demo/2026-01-01T00-00-00Z.json.",
+  "assessment": "Engage should appear on that session.",
+  "plan": "The employee answers Fix now. Investigation runs from the workflow. This visit does not investigate."
+}

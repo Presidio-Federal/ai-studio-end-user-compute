@@ -1,7 +1,7 @@
 ---
 name: workspace-handoff
-description: "v0.5.0 — Workspace catalog of who writes each path. Lifecycle nurses own a folder. Ticket writes the incident number from the investigation SOAP."
-version: "0.5.0"
+description: "v0.6.0 — Workspace catalog of who writes each path. Lifecycle nurses own a folder. Demo writes each campaign send."
+version: "0.6.0"
 ---
 
 # Workspace handoff
@@ -37,6 +37,8 @@ paths.
 | `tickets/metadata.json` | metadata | Ticket | `ticket` `schemas/tickets-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `number` is the INC. Concise details are in the SOAP sentences. The incident row is not. |
 | `operations/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Operations | `operations` `schemas/operations-visit.schema.json` | In-life devices that are failing experience or compliance, plus serial and collector UID when known. `keys` use `device:` for the chassis serial. A later stamp is only devices whose issue or vitals changed. |
 | `operations/metadata.json` | metadata | Operations | `operations` `schemas/operations-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. Counts are fine. The device rows are not. |
+| `demo/<YYYY-MM-DDTHH-MM-SSZ>.json` | observation | Demo | `demo` `schemas/demo-visit.schema.json` | One campaign send: NQL id, user SID, hostname, serial, request id, status. `keys` use `device:` for the chassis serial. A later stamp is only that send when the request id or status changed. |
+| `demo/metadata.json` | metadata | Demo | `demo` `schemas/demo-metadata.schema.json` | SOAP note. `evidence_ref` is the latest stamp. `campaign` is the NQL id. The device row is not here. |
 
 ## Writing
 

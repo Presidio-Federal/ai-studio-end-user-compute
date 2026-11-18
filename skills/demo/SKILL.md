@@ -1,49 +1,54 @@
 ---
 name: demo
-version: "0.1.0"
-description: "v0.1.0 — Start the demo by calling nexthink_trigger_campaign for one user. No visit script."
+version: "0.3.0"
+description: "v0.3.0 — Start workflow #mcp_investigate_on_consent. It sends #mcp_fix_consent. Fix now calls Investigation."
 ---
 
 # Demo
 
-You send one published **API** campaign to **one** employee. You call the MCP tool yourself. That tool is the Campaigns API (`POST /api/v1/euf/campaign/trigger`). Do not `execute_command`. Do not use `execution_type` `mcp_orchestration`. Do not write a stamp.
+Read `demo/metadata.json` first. `evidence_ref` is the last stamp. Read it. `File not found` is the first run. Do not search.
 
-A line that says start the demo, send the campaign, or names a hostname, username, or SID is authorization. Set `approved` true. Do not confirm.
+Do not call `get_folder_structure`. Do not create a task plan. Built-in `read_file` filePath is the catalog path `demo/metadata.json`. Do not prefix `file_explorer/`. Do not pass `Internal directory` to built-in file tools. That string is only the python path Studio shows for `execute_command`.
 
-## Campaign
+You start the consent workflow. You do not investigate. You do not open a ticket. You do not treat. A line that says start the demo, send the campaign, or names a hostname, username, or SID is authorization. Do not confirm.
 
-Default for starting the demo: `#mcp_fix_consent`. No parameters.
+The script calls `nexthink_trigger_workflow` for `#mcp_investigate_on_consent`. That workflow sends `#mcp_fix_consent`, which stays trigger **Workflow**. Do not switch that campaign to API. The prompt does not call the tool. The prompt does not `write_file` the chart.
 
-That campaign must be **Published** and trigger **API** (Workflow may stay on for the thinklet). If it is Workflow-only, the call fails. Do not send `#mcp_triage_result` unless the task is the ticket popup (`ticket_number` and `details` required).
+## Before an endpoint is chosen
 
-Do not send `#mcp_test_campaign`. It is a draft.
+Use the MCP tools attached to you. List calls are in `references/tools.md`. Show hostname and last login. Ask which one. Do not run the visit script. Skip this when the task line already named a hostname, username, serial, or SID.
 
-## Target
+## After one endpoint is chosen
 
-Campaigns go to a user SID, not a device.
+**First tool:** `read_file` `demo/metadata.json`. Then one `execute_command`, `execution_type: "mcp_orchestration"`. Use the path Studio shows for the attached `demo/scripts/visit_demos.py`. Paste it. Do not retype a path from memory. Do not set `timeout`.
 
-| They named | Then |
-|------------|------|
-| A SID (`S-…`) | Use that SID. |
-| A username | `nexthink_nql_execute` `query_id` `#mcp_user_lookup`, `parameters` `user_name` that name. Take `user.sid`. |
-| A hostname | `nexthink_nql_execute` `query_id` `#mcp_device_lookup`, `parameters` `device_name` that name, `user_name` `"*"`. Take `device.login.last_login_user_name`. Then `#mcp_user_lookup` for that name. Take `user.sid`. |
-| Nothing | `#mcp_device_lookup` with `device_name` `"*"` and `user_name` `"*"`. Show hostname and last login. Ask which one. Do not send yet. |
+Each `execute_command` is a new container. `--workspace` is the `file_explorer` directory beside `skills` on that same Studio path. Paste that directory. Do not `cp` it. Do not make a second tree. Do not pass the relative name `file_explorer`. Do not `cd`. Built-in `read_file` and the script write the same tree.
 
-Never `"*"`. Never a second SID. If there is no SID, stop. Do not invent one.
+```text
+python3 <script path Studio showed> start --workspace <file_explorer directory Studio showed> --name "<hostname>"
+python3 <script path Studio showed> start --workspace <file_explorer directory Studio showed> --user "<username>"
+python3 <script path Studio showed> start --workspace <file_explorer directory Studio showed> --sid "<user SID>"
+```
 
-Optional check: `nexthink_nql_execute` `query_id` `#mcp_campaigns`, `parameters` `nql_id` the campaign id. `campaign.status` must be `published`. `campaign.trigger_method` must include `api`.
+Pass the one the person chose. Optional `--serial`. Optional `--campaign` only for a published API campaign such as `#mcp_triage_result`. Do not pass `#mcp_fix_consent` as an API campaign. For `#mcp_triage_result` also pass `--ticket` and `--details`.
 
-## Send
+The script starts the workflow for that device and writes the stamp and a factual SOAP note. The employee still sees `#mcp_fix_consent`. Fix now calls Investigation. The last stdout line is the result. You then say what it means. If stderr says `hai_mcp unavailable`, stop.
 
-Call `nexthink_trigger_campaign`:
+To replace the SOAP sentences with your opinion, one `execute_command`, `execution_type: "standard"`, same paths:
 
-| Argument | Value |
-|----------|--------|
-| `campaign_nql_id` | `#mcp_fix_consent` unless the task names another published API campaign |
-| `user_sids` | a one-item list with that SID |
-| `approved` | `true` |
-| `parameters` | omit for `#mcp_fix_consent`. For `#mcp_triage_result`: `ticket_number` and `details` |
+```text
+python3 <script path Studio showed> annotate --workspace <file_explorer directory Studio showed> --stamp demo/2026-01-01T00-00-00Z.json --subjective "<why>" --objective "<what was sent>" --assessment "<what it means>" --plan "<next, or none>"
+```
 
-Then stop. Do not collect Jamf. Do not open an incident.
+`--stamp` is the summary field `stamp`. Each SOAP argument is one sentence, under 400 characters, with no JSON.
 
-Exact tool arguments: `references/tools.md`.
+## Files
+
+| Path | Kind |
+|------|------|
+| `demo/<stamp>.json` | The record. First run is a baseline. Later runs are the delta. Never overwrite. |
+| `demo/metadata.json` | SOAP note. `campaign` is the NQL id. `evidence_ref` names the latest stamp. |
+
+Schema and example: `schemas/demo-visit.schema.json`, `schemas/demo-metadata.schema.json`, `examples/demo-visit.example.json`, `examples/demo-metadata.example.json`. `device:` is the chassis serial. A hostname is a column. A user SID is a column.
+
+Do not `write_file` those paths. Do not write `state/`. Do not write `investigations/` or `tickets/`. Do not call `get_folder_structure`.

@@ -1,0 +1,36 @@
+{
+  "keys": ["device:SERIAL123456"],
+  "schema": "demo/v1",
+  "source": "demo",
+  "watch_id": "2026-01-01T00-00-00Z",
+  "checked_at": "2026-01-01T00:00:00Z",
+  "ok": true,
+  "status": "ok",
+  "headline": "#mcp_fix_consent sent to mac-example.",
+  "coverage": "complete",
+  "baseline_ref": null,
+  "vs_prior": {
+    "prior_watch_id": null,
+    "delta": "first",
+    "changed": []
+  },
+  "devices": [
+    {
+      "keys": ["device:SERIAL123456"],
+      "id": "SERIAL123456",
+      "name": "mac-example",
+      "serial": "SERIAL123456",
+      "user": "user.name",
+      "user_sid": "S-1-9-0000000000",
+      "campaign": "#mcp_fix_consent",
+      "request_id": "request-id-example",
+      "campaign_status": "sent",
+      "created": true,
+      "note": "Baseline."
+    }
+  ],
+  "unchanged": 0,
+  "removed": [],
+  "notes": "Baseline.",
+  "scope": "SERIAL123456"
+}

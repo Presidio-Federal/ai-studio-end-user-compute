@@ -1,12 +1,25 @@
 # Tools
 
-Call these on the agent. Do not `execute_command`. Do not invent NQL.
+## The agent, when no endpoint is chosen
+
+Call the list tools that are attached. Do not invent a name filter.
+
+| Tool | Call |
+|------|------|
+| `nexthink_nql_execute` | `query_id` `#mcp_device_lookup`, `parameters` `device_name` `"*"`, `user_name` `"*"`. |
+
+Show hostname and last login. Ask which one. Do not run `start`.
+
+## The visit script, after one endpoint is chosen
+
+The prompt does not call these on the start turn. `scripts/visit_demos.py start` does.
 
 | Tool | When |
 |------|------|
-| `nexthink_nql_execute` | Look up. `query_id` `#mcp_device_lookup` with `device_name` and `user_name`. `query_id` `#mcp_user_lookup` with `user_name`. Optional: `query_id` `#mcp_campaigns` with `nql_id` to confirm published + `api`. |
-| `nexthink_trigger_campaign` | Send. `campaign_nql_id`, `user_sids` (one SID), `approved` true. `parameters` only when that campaign has parameter ids. |
+| `nexthink_nql_execute` | `#mcp_device_lookup` for a hostname. `#mcp_user_lookup` for a username. |
+| `nexthink_trigger_workflow` | `approved` true. `workflow_id` `#mcp_investigate_on_consent`. `device_names` is the one hostname. This sends `#mcp_fix_consent`. Do not switch that campaign to API. |
+| `nexthink_trigger_campaign` | Only when `--campaign` is an API campaign such as `#mcp_triage_result`. `approved` true. `user_sids` is one SID. Never `"*"`. |
 
-Do not call `nexthink_trigger_workflow`, `nexthink_execute_remote_action`, `nexthink_enrich`, or any `snow_`, `jamf_`, or `intune_` tool.
+Do not call `nexthink_execute_remote_action`, `nexthink_enrich`, or any `snow_`, `jamf_`, or `intune_` tool.
 
-`nexthink_nql_execute` cannot send a campaign. Do not add a saved NQL query for this.
+`nexthink_nql_execute` cannot send a campaign or start a workflow. Do not add a saved NQL query for this.
